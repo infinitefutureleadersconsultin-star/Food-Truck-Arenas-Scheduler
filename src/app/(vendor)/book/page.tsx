@@ -82,9 +82,12 @@ export default function BookPage() {
 
   // Date navigation helpers
   function shiftDate(days: number) {
-    const d = new Date(selectedDate);
+    const d = new Date(selectedDate + 'T00:00:00');
     d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    setSelectedDate(`${yyyy}-${mm}-${dd}`);
   }
 
   const isLoading = bookingsLoading || resourcesLoading;

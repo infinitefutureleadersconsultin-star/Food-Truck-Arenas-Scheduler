@@ -85,7 +85,7 @@ export async function getPeakHours(range: DateRange): Promise<PeakHourData[]> {
   }
 
   bookings.forEach((b) => {
-    const dayOfWeek = new Date(b.date).getDay();
+    const dayOfWeek = new Date(b.date + 'T00:00:00').getDay();
     const startHour = parseInt(b.startTime.split(':')[0], 10);
     const endHour = parseInt(b.endTime.split(':')[0], 10);
     for (let h = startHour; h < endHour; h++) {

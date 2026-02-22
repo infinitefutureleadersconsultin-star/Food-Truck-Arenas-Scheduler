@@ -10,12 +10,6 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.role == 'admin';
     }
 
-    function isActiveVendor() {
-      return isAuthenticated() &&
-             request.auth.token.role == 'vendor' &&
-             request.auth.token.status == 'active';
-    }
-
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -38,22 +32,26 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      allow read: if isAuthenticated() &&
-        (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isActiveVendor();
-      allow update: if (resource.data.userId == request.auth.uid && isActiveVendor()) || isAdmin();
+      // All authenticated users can read bookings (needed for floor plan availability)
+      allow read: if isAuthenticated();
+      // Any authenticated user can create bookings (no Cloud Functions to set custom claims)
+      allow create: if isAuthenticated();
+      // Booking owner or admin can update (for check-in, cancel, etc.)
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
       allow delete: if isAdmin();
     }
 
     match /checkins/{checkinId} {
       allow read: if isAuthenticated();
-      allow create: if isActiveVendor();
+      allow create: if isAuthenticated();
       allow update: if isAdmin();
     }
 
     match /announcements/{announcementId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      // Allow authenticated users to update (for marking as read via readBy array)
+      allow update: if isAuthenticated();
     }
 
     match /messages/{messageId} {
@@ -61,6 +59,9 @@ service cloud.firestore {
         (resource.data.senderId == request.auth.uid ||
          resource.data.receiverId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated();
+      // Allow receiver to mark messages as read
+      allow update: if isAuthenticated() &&
+        (resource.data.receiverId == request.auth.uid || isAdmin());
     }
 
     match /settings/{settingId} {
@@ -71,7 +72,7 @@ service cloud.firestore {
     match /waitlist/{waitlistId} {
       allow read: if isAuthenticated() &&
         (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isActiveVendor();
+      allow create: if isAuthenticated();
       allow delete: if (resource.data.userId == request.auth.uid) || isAdmin();
     }
 
@@ -88,7 +89,7 @@ service cloud.firestore {
     match /issueReports/{reportId} {
       allow read: if isAuthenticated() &&
         (resource.data.reportedBy == request.auth.uid || isAdmin());
-      allow create: if isActiveVendor();
+      allow create: if isAuthenticated();
       allow update: if isAdmin();
     }
 
