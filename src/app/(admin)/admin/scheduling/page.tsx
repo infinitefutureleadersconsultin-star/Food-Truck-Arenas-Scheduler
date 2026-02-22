@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Clock,
   Settings,
@@ -8,8 +8,9 @@ import {
   Plus,
   Trash2,
   Save,
-  AlertTriangle,
   CheckCircle2,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,119 +25,84 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
+import { useSettings } from '@/lib/hooks/useSettings';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { addBlackoutDate, removeBlackoutDate } from '@/lib/services/settingsService';
 import { cn } from '@/lib/utils/cn';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface OperatingDay {
-  isOpen: boolean;
-  openTime: string;
-  closeTime: string;
-}
-
-interface BlackoutEntry {
-  id: string;
-  date: string;
-  reason: string;
-}
-
-interface BookingRulesState {
-  minBookingDuration: string;
-  maxBookingDuration: string;
-  bookingCutoffHours: number;
-  cancellationCutoffHours: number;
-  maxAdvanceBookingDays: number;
-  maxVendorsPerSlot: number;
-  autoConfirm: boolean;
-  allowRecurring: boolean;
-}
-
-interface CheckInSettingsState {
-  checkInWindow: string;
-  noShowThreshold: string;
-  autoRelease: boolean;
-}
+import type { OperatingHoursEntry, BookingRules, BlackoutDate } from '@/lib/types';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const DAYS_OF_WEEK = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+] as const;
 
-const DEFAULT_OPERATING_HOURS: Record<string, OperatingDay> = {
-  Monday: { isOpen: true, openTime: '06:00', closeTime: '22:00' },
-  Tuesday: { isOpen: true, openTime: '06:00', closeTime: '22:00' },
-  Wednesday: { isOpen: true, openTime: '06:00', closeTime: '22:00' },
-  Thursday: { isOpen: true, openTime: '06:00', closeTime: '22:00' },
-  Friday: { isOpen: true, openTime: '06:00', closeTime: '22:00' },
-  Saturday: { isOpen: true, openTime: '08:00', closeTime: '18:00' },
-  Sunday: { isOpen: false, openTime: '08:00', closeTime: '18:00' },
+const DAY_DISPLAY: Record<string, string> = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+  sunday: 'Sunday',
 };
-
-const DEFAULT_BOOKING_RULES: BookingRulesState = {
-  minBookingDuration: '60',
-  maxBookingDuration: '480',
-  bookingCutoffHours: 2,
-  cancellationCutoffHours: 4,
-  maxAdvanceBookingDays: 30,
-  maxVendorsPerSlot: 8,
-  autoConfirm: true,
-  allowRecurring: true,
-};
-
-const DEFAULT_CHECKIN: CheckInSettingsState = {
-  checkInWindow: '15',
-  noShowThreshold: '30',
-  autoRelease: true,
-};
-
-const DEFAULT_BLACKOUTS: BlackoutEntry[] = [
-  { id: '1', date: '2026-07-04', reason: 'Independence Day' },
-  { id: '2', date: '2026-12-25', reason: 'Christmas Day' },
-];
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function SchedulingPage() {
-  // Operating Hours state
-  const [operatingHours, setOperatingHours] = useState<Record<string, OperatingDay>>(
-    DEFAULT_OPERATING_HOURS
-  );
+  const { user } = useAuthContext();
+  const { settings, loading, error, updateSettings } = useSettings();
 
-  // Booking Rules state
-  const [bookingRules, setBookingRules] = useState<BookingRulesState>(DEFAULT_BOOKING_RULES);
+  // Local form state
+  const [operatingHours, setOperatingHours] = useState<Record<string, OperatingHoursEntry>>({});
+  const [bookingRules, setBookingRules] = useState<Partial<BookingRules>>({});
+  const [checkInWindow, setCheckInWindow] = useState('15');
+  const [noShowThreshold, setNoShowThreshold] = useState('30');
+  const [formInitialised, setFormInitialised] = useState(false);
 
-  // Blackout Dates state
-  const [blackoutDates, setBlackoutDates] = useState<BlackoutEntry[]>(DEFAULT_BLACKOUTS);
+  // Blackout date form
   const [newBlackoutDate, setNewBlackoutDate] = useState('');
   const [newBlackoutReason, setNewBlackoutReason] = useState('');
 
-  // Check-In Settings state
-  const [checkInSettings, setCheckInSettings] = useState<CheckInSettingsState>(DEFAULT_CHECKIN);
-
-  // Save feedback
+  // Save state
+  const [savingSection, setSavingSection] = useState<string | null>(null);
   const [savedSection, setSavedSection] = useState<string | null>(null);
 
+  // Sync settings → local form once loaded
+  useEffect(() => {
+    if (settings && !formInitialised) {
+      setOperatingHours(settings.operatingHours ?? {});
+      setBookingRules(settings.bookingRules ?? {});
+      setCheckInWindow(String(settings.checkInWindow ?? 15));
+      setNoShowThreshold(String(settings.noShowThreshold ?? 30));
+      setFormInitialised(true);
+    }
+  }, [settings, formInitialised]);
+
   // ---------------------------------------------------------------------------
-  // Handlers - Operating Hours
+  // Operating Hours Handlers
   // ---------------------------------------------------------------------------
 
   const handleDayToggle = (day: string) => {
     setOperatingHours((prev) => ({
       ...prev,
-      [day]: { ...prev[day], isOpen: !prev[day].isOpen },
+      [day]: {
+        ...prev[day],
+        isOpen: !prev[day]?.isOpen,
+        openTime: prev[day]?.openTime ?? '06:00',
+        closeTime: prev[day]?.closeTime ?? '22:00',
+      },
     }));
   };
 
@@ -148,55 +114,125 @@ export default function SchedulingPage() {
   };
 
   // ---------------------------------------------------------------------------
-  // Handlers - Booking Rules
+  // Booking Rules Handlers
   // ---------------------------------------------------------------------------
 
-  const handleRuleChange = <K extends keyof BookingRulesState>(
-    field: K,
-    value: BookingRulesState[K]
-  ) => {
+  const handleRuleChange = <K extends keyof BookingRules>(field: K, value: BookingRules[K]) => {
     setBookingRules((prev) => ({ ...prev, [field]: value }));
   };
 
   // ---------------------------------------------------------------------------
-  // Handlers - Blackout Dates
+  // Save Handlers
   // ---------------------------------------------------------------------------
 
-  const handleAddBlackout = () => {
-    if (!newBlackoutDate || !newBlackoutReason.trim()) return;
-    const entry: BlackoutEntry = {
-      id: `bo-${Date.now()}`,
-      date: newBlackoutDate,
-      reason: newBlackoutReason.trim(),
-    };
-    setBlackoutDates((prev) => [...prev, entry].sort((a, b) => a.date.localeCompare(b.date)));
-    setNewBlackoutDate('');
-    setNewBlackoutReason('');
+  const handleSaveSection = async (section: string) => {
+    if (!user) return;
+    setSavingSection(section);
+
+    try {
+      switch (section) {
+        case 'hours':
+          await updateSettings({ operatingHours }, user.uid);
+          break;
+        case 'rules':
+          await updateSettings({ bookingRules: bookingRules as BookingRules }, user.uid);
+          break;
+        case 'checkin':
+          await updateSettings(
+            {
+              checkInWindow: parseInt(checkInWindow, 10) || 15,
+              noShowThreshold: parseInt(noShowThreshold, 10) || 30,
+            },
+            user.uid
+          );
+          break;
+      }
+      setSavedSection(section);
+      setTimeout(() => setSavedSection(null), 3000);
+    } catch (err) {
+      console.error(`Failed to save ${section}:`, err);
+    } finally {
+      setSavingSection(null);
+    }
   };
 
-  const handleRemoveBlackout = (id: string) => {
-    setBlackoutDates((prev) => prev.filter((bd) => bd.id !== id));
+  // ---------------------------------------------------------------------------
+  // Blackout Date Handlers
+  // ---------------------------------------------------------------------------
+
+  const handleAddBlackout = async () => {
+    if (!newBlackoutDate || !newBlackoutReason.trim() || !user) return;
+    try {
+      await addBlackoutDate(newBlackoutDate, newBlackoutReason.trim(), user.uid);
+      setNewBlackoutDate('');
+      setNewBlackoutReason('');
+    } catch (err) {
+      console.error('Failed to add blackout date:', err);
+    }
+  };
+
+  const handleRemoveBlackout = async (blackout: BlackoutDate) => {
+    if (!user) return;
+    try {
+      await removeBlackoutDate(blackout.date, blackout.reason, user.uid);
+    } catch (err) {
+      console.error('Failed to remove blackout date:', err);
+    }
   };
 
   // ---------------------------------------------------------------------------
-  // Handlers - Check-in Settings
+  // Loading / Error
   // ---------------------------------------------------------------------------
 
-  const handleCheckInChange = <K extends keyof CheckInSettingsState>(
-    field: K,
-    value: CheckInSettingsState[K]
-  ) => {
-    setCheckInSettings((prev) => ({ ...prev, [field]: value }));
-  };
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <AlertTriangle className="h-12 w-12 text-red-400" />
+        <p className="text-red-600">Error loading settings: {error}</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   // ---------------------------------------------------------------------------
-  // Save handler (simulated)
+  // Save Button Helper
   // ---------------------------------------------------------------------------
 
-  const handleSaveSection = (section: string) => {
-    setSavedSection(section);
-    setTimeout(() => setSavedSection(null), 3000);
-  };
+  function SaveButton({ section, label }: { section: string; label: string }) {
+    const isSaving = savingSection === section;
+    const isSaved = savedSection === section;
+
+    return (
+      <Button onClick={() => handleSaveSection(section)} size="sm" disabled={isSaving}>
+        {isSaving ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Saving...
+          </>
+        ) : isSaved ? (
+          <>
+            <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
+            Saved!
+          </>
+        ) : (
+          <>
+            <Save className="mr-2 h-4 w-4" />
+            {label}
+          </>
+        )}
+      </Button>
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Render
@@ -204,7 +240,6 @@ export default function SchedulingPage() {
 
   return (
     <div className="space-y-6">
-      {/* Title */}
       <div className="flex items-center gap-3">
         <Settings className="h-8 w-8 text-primary" />
         <h1 className="text-3xl font-bold tracking-tight">
@@ -212,9 +247,7 @@ export default function SchedulingPage() {
         </h1>
       </div>
 
-      {/* ----------------------------------------------------------------- */}
       {/* Operating Hours */}
-      {/* ----------------------------------------------------------------- */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -227,28 +260,17 @@ export default function SchedulingPage() {
                 Set the facility open/close times for each day of the week.
               </CardDescription>
             </div>
-            <Button
-              onClick={() => handleSaveSection('hours')}
-              size="sm"
-            >
-              {savedSection === 'hours' ? (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
-                  Saved!
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Hours
-                </>
-              )}
-            </Button>
+            <SaveButton section="hours" label="Save Hours" />
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {DAYS_OF_WEEK.map((day) => {
-              const entry = operatingHours[day];
+              const entry = operatingHours[day] ?? {
+                isOpen: false,
+                openTime: '06:00',
+                closeTime: '22:00',
+              };
               return (
                 <div key={day} className="flex items-center gap-4">
                   <div className="flex w-36 items-center gap-3">
@@ -264,7 +286,7 @@ export default function SchedulingPage() {
                         !entry.isOpen && 'text-gray-400'
                       )}
                     >
-                      {day}
+                      {DAY_DISPLAY[day]}
                     </Label>
                   </div>
                   {entry.isOpen ? (
@@ -272,18 +294,14 @@ export default function SchedulingPage() {
                       <Input
                         type="time"
                         value={entry.openTime}
-                        onChange={(e) =>
-                          handleTimeChange(day, 'openTime', e.target.value)
-                        }
+                        onChange={(e) => handleTimeChange(day, 'openTime', e.target.value)}
                         className="w-28"
                       />
                       <span className="text-sm text-gray-400">to</span>
                       <Input
                         type="time"
                         value={entry.closeTime}
-                        onChange={(e) =>
-                          handleTimeChange(day, 'closeTime', e.target.value)
-                        }
+                        onChange={(e) => handleTimeChange(day, 'closeTime', e.target.value)}
                         className="w-28"
                       />
                     </div>
@@ -297,9 +315,7 @@ export default function SchedulingPage() {
         </CardContent>
       </Card>
 
-      {/* ----------------------------------------------------------------- */}
       {/* Booking Rules */}
-      {/* ----------------------------------------------------------------- */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -312,32 +328,16 @@ export default function SchedulingPage() {
                 Configure limits and policies for vendor bookings.
               </CardDescription>
             </div>
-            <Button
-              onClick={() => handleSaveSection('rules')}
-              size="sm"
-            >
-              {savedSection === 'rules' ? (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
-                  Saved!
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Rules
-                </>
-              )}
-            </Button>
+            <SaveButton section="rules" label="Save Rules" />
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Min Booking Duration */}
             <div className="space-y-2">
               <Label>Min Booking Duration (minutes)</Label>
               <Select
-                value={bookingRules.minBookingDuration}
-                onValueChange={(val) => handleRuleChange('minBookingDuration', val)}
+                value={String(bookingRules.minBookingDuration ?? 60)}
+                onValueChange={(val) => handleRuleChange('minBookingDuration', parseInt(val, 10))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select duration" />
@@ -351,12 +351,11 @@ export default function SchedulingPage() {
               </Select>
             </div>
 
-            {/* Max Booking Duration */}
             <div className="space-y-2">
               <Label>Max Booking Duration (minutes)</Label>
               <Select
-                value={bookingRules.maxBookingDuration}
-                onValueChange={(val) => handleRuleChange('maxBookingDuration', val)}
+                value={String(bookingRules.maxBookingDuration ?? 480)}
+                onValueChange={(val) => handleRuleChange('maxBookingDuration', parseInt(val, 10))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select duration" />
@@ -369,65 +368,49 @@ export default function SchedulingPage() {
               </Select>
             </div>
 
-            {/* Booking Cutoff Hours */}
             <div className="space-y-2">
               <Label>Booking Cutoff (hours before)</Label>
               <Input
                 type="number"
-                value={bookingRules.bookingCutoffHours}
+                value={bookingRules.bookingCutoffHours ?? 2}
                 onChange={(e) =>
-                  handleRuleChange(
-                    'bookingCutoffHours',
-                    parseInt(e.target.value, 10) || 0
-                  )
+                  handleRuleChange('bookingCutoffHours', parseInt(e.target.value, 10) || 0)
                 }
                 min={0}
               />
             </div>
 
-            {/* Cancellation Cutoff Hours */}
             <div className="space-y-2">
               <Label>Cancellation Cutoff (hours before)</Label>
               <Input
                 type="number"
-                value={bookingRules.cancellationCutoffHours}
+                value={bookingRules.cancellationCutoffHours ?? 4}
                 onChange={(e) =>
-                  handleRuleChange(
-                    'cancellationCutoffHours',
-                    parseInt(e.target.value, 10) || 0
-                  )
+                  handleRuleChange('cancellationCutoffHours', parseInt(e.target.value, 10) || 0)
                 }
                 min={0}
               />
             </div>
 
-            {/* Max Advance Booking Days */}
             <div className="space-y-2">
               <Label>Max Advance Booking (days)</Label>
               <Input
                 type="number"
-                value={bookingRules.maxAdvanceBookingDays}
+                value={bookingRules.maxAdvanceBookingDays ?? 30}
                 onChange={(e) =>
-                  handleRuleChange(
-                    'maxAdvanceBookingDays',
-                    parseInt(e.target.value, 10) || 1
-                  )
+                  handleRuleChange('maxAdvanceBookingDays', parseInt(e.target.value, 10) || 1)
                 }
                 min={1}
               />
             </div>
 
-            {/* Max Vendors Per Slot */}
             <div className="space-y-2">
               <Label>Max Vendors Per Slot</Label>
               <Input
                 type="number"
-                value={bookingRules.maxVendorsPerSlot}
+                value={bookingRules.maxVendorsPerSlot ?? 8}
                 onChange={(e) =>
-                  handleRuleChange(
-                    'maxVendorsPerSlot',
-                    parseInt(e.target.value, 10) || 1
-                  )
+                  handleRuleChange('maxVendorsPerSlot', parseInt(e.target.value, 10) || 1)
                 }
                 min={1}
               />
@@ -436,7 +419,6 @@ export default function SchedulingPage() {
 
           <Separator className="my-6" />
 
-          {/* Toggles */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -446,7 +428,7 @@ export default function SchedulingPage() {
                 </p>
               </div>
               <Switch
-                checked={bookingRules.autoConfirm}
+                checked={bookingRules.autoConfirm ?? true}
                 onCheckedChange={(val) => handleRuleChange('autoConfirm', val)}
               />
             </div>
@@ -458,7 +440,7 @@ export default function SchedulingPage() {
                 </p>
               </div>
               <Switch
-                checked={bookingRules.allowRecurring}
+                checked={bookingRules.allowRecurring ?? true}
                 onCheckedChange={(val) => handleRuleChange('allowRecurring', val)}
               />
             </div>
@@ -466,41 +448,20 @@ export default function SchedulingPage() {
         </CardContent>
       </Card>
 
-      {/* ----------------------------------------------------------------- */}
       {/* Blackout Dates */}
-      {/* ----------------------------------------------------------------- */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CalendarX className="h-5 w-5" />
-                Blackout Dates
-              </CardTitle>
-              <CardDescription>
-                Dates when no bookings are allowed.
-              </CardDescription>
-            </div>
-            <Button
-              onClick={() => handleSaveSection('blackouts')}
-              size="sm"
-            >
-              {savedSection === 'blackouts' ? (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
-                  Saved!
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Blackouts
-                </>
-              )}
-            </Button>
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <CalendarX className="h-5 w-5" />
+              Blackout Dates
+            </CardTitle>
+            <CardDescription>
+              Dates when no bookings are allowed.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          {/* Add blackout form */}
           <div className="flex items-end gap-3 mb-4">
             <div className="space-y-2">
               <Label>Date</Label>
@@ -530,16 +491,15 @@ export default function SchedulingPage() {
 
           <Separator className="my-4" />
 
-          {/* Existing blackout dates */}
-          {blackoutDates.length === 0 ? (
+          {(!settings?.blackoutDates || settings.blackoutDates.length === 0) ? (
             <p className="py-4 text-center text-sm text-gray-400">
               No blackout dates configured.
             </p>
           ) : (
             <div className="space-y-2">
-              {blackoutDates.map((bd) => (
+              {settings.blackoutDates.map((bd, i) => (
                 <div
-                  key={bd.id}
+                  key={`${bd.date}-${i}`}
                   className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3"
                 >
                   <div>
@@ -549,7 +509,7 @@ export default function SchedulingPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleRemoveBlackout(bd.id)}
+                    onClick={() => handleRemoveBlackout(bd)}
                     className="text-red-400 hover:text-red-600"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -561,9 +521,7 @@ export default function SchedulingPage() {
         </CardContent>
       </Card>
 
-      {/* ----------------------------------------------------------------- */}
       {/* Check-In Settings */}
-      {/* ----------------------------------------------------------------- */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -576,32 +534,16 @@ export default function SchedulingPage() {
                 Configure check-in windows and no-show thresholds.
               </CardDescription>
             </div>
-            <Button
-              onClick={() => handleSaveSection('checkin')}
-              size="sm"
-            >
-              {savedSection === 'checkin' ? (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
-                  Saved!
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Check-In
-                </>
-              )}
-            </Button>
+            <SaveButton section="checkin" label="Save Check-In" />
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Check-in Window */}
             <div className="space-y-2">
               <Label>Check-In Window (minutes before start)</Label>
               <Select
-                value={checkInSettings.checkInWindow}
-                onValueChange={(val) => handleCheckInChange('checkInWindow', val)}
+                value={checkInWindow}
+                onValueChange={setCheckInWindow}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select window" />
@@ -619,12 +561,11 @@ export default function SchedulingPage() {
               </p>
             </div>
 
-            {/* No-Show Threshold */}
             <div className="space-y-2">
               <Label>No-Show Threshold (minutes after start)</Label>
               <Select
-                value={checkInSettings.noShowThreshold}
-                onValueChange={(val) => handleCheckInChange('noShowThreshold', val)}
+                value={noShowThreshold}
+                onValueChange={setNoShowThreshold}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select threshold" />
@@ -640,21 +581,6 @@ export default function SchedulingPage() {
                 Minutes after start before marking vendor as no-show.
               </p>
             </div>
-          </div>
-
-          <Separator className="my-6" />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Auto-Release on No-Show</p>
-              <p className="text-xs text-gray-500">
-                Automatically release resources when a vendor is marked as no-show.
-              </p>
-            </div>
-            <Switch
-              checked={checkInSettings.autoRelease}
-              onCheckedChange={(val) => handleCheckInChange('autoRelease', val)}
-            />
           </div>
         </CardContent>
       </Card>

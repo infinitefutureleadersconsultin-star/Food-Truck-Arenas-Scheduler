@@ -48,7 +48,7 @@ export default function VendorLayout({
 
   useEffect(() => {
     if (!loading && userData && userData.role === 'admin') {
-      router.replace('/admin');
+      router.replace('/admin/dashboard');
     }
   }, [userData, loading, router]);
 

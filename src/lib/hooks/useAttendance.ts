@@ -69,7 +69,7 @@ export function useAttendance(options?: UseAttendanceOptions) {
       constraints.push(orderBy('date', 'desc'));
 
       const results = await getDocuments<AttendanceLog>(
-        'attendanceLogs',
+        'attendance',
         ...constraints
       );
       setLogs(results);

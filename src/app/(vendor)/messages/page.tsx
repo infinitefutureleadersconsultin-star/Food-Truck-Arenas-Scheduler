@@ -36,21 +36,9 @@ import {
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils/cn';
+import { useMessages } from '@/lib/hooks/useMessages';
+import { sendMessage as sendMessageToFirestore } from '@/lib/services/messageService';
 import type { Message, MessageType } from '@/lib/types';
-
-// ---------------------------------------------------------------------------
-// useMessages hook (placeholder wired to local state until Firestore is set up)
-// ---------------------------------------------------------------------------
-
-function useMessages() {
-  // Placeholder: in production this subscribes to Firestore messages collection.
-  return {
-    messages: [] as Message[],
-    loading: false,
-    error: null as string | null,
-    refetch: () => {},
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Messages Page
@@ -334,8 +322,16 @@ function ComposeDialog({
     if (!subject.trim() || !body.trim()) return;
     setSending(true);
     try {
-      // In production: addDoc to messages collection
-      console.log('Sending message:', { subject, messageType, body, senderName, senderId });
+      await sendMessageToFirestore({
+        senderId,
+        senderName,
+        receiverId: replyTo?.senderId ?? 'admin',
+        receiverName: replyTo?.senderName ?? 'Commissary Admin',
+        subject: subject.trim(),
+        body: body.trim(),
+        type: messageType,
+        attachments: [],
+      });
       onSent();
       onOpenChange(false);
       setSubject('');
