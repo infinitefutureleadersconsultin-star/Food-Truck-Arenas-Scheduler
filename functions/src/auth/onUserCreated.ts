@@ -1,11 +1,14 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
-const ADMIN_EMAIL = "Foodtruckarenas@gmail.com";
+const ADMIN_EMAILS = [
+  "Foodtruckarenas@gmail.com",
+  "issiahmclean1999@gmail.com",
+];
 
 /**
  * Auth trigger: runs when a new user is created in Firebase Auth.
- * - If the user's email matches the admin email, set admin custom claims.
+ * - If the user's email matches an admin email, set admin custom claims.
  * - Otherwise, set vendor custom claims with status 'pending'.
  * - Creates a user document in Firestore with basic profile info.
  */
@@ -15,7 +18,7 @@ export const onUserCreated = functions.auth.user().onCreate(
     const auth = admin.auth();
 
     const { uid, email, displayName, photoURL } = user;
-    const isAdmin = email === ADMIN_EMAIL;
+    const isAdmin = !!email && ADMIN_EMAILS.includes(email);
 
     // Set custom claims based on role
     const customClaims: Record<string, unknown> = isAdmin
