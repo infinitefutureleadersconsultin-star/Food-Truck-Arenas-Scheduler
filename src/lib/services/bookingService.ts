@@ -394,15 +394,18 @@ function generateRecurringDates(
   pattern: RecurringPattern
 ): string[] {
   const dates: string[] = [];
-  const start = new Date(startDate);
-  const end = new Date(pattern.endDate);
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date(pattern.endDate + 'T00:00:00');
   const current = new Date(start);
 
   while (current <= end) {
     const dayOfWeek = current.getDay();
 
     if (pattern.daysOfWeek.length === 0 || pattern.daysOfWeek.includes(dayOfWeek)) {
-      dates.push(current.toISOString().split('T')[0]);
+      const yyyy = current.getFullYear();
+      const mm = String(current.getMonth() + 1).padStart(2, '0');
+      const dd = String(current.getDate()).padStart(2, '0');
+      dates.push(`${yyyy}-${mm}-${dd}`);
     }
 
     switch (pattern.frequency) {
