@@ -5,15 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
+import { ADMIN_EMAILS } from '@/lib/utils/constants';
 import type { ReactNode } from 'react';
 
 interface AdminGuardProps {
   children: ReactNode;
 }
-
-const ADMIN_EMAILS = [
-  process.env.NEXT_PUBLIC_ADMIN_EMAIL,
-].filter(Boolean);
 
 export function AdminGuard({ children }: AdminGuardProps) {
   const { user, userData, loading } = useAuthContext();

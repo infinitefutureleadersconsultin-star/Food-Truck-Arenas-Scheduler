@@ -3,7 +3,10 @@
 // =============================================================================
 
 // ---- Core App Info ----
-export const ADMIN_EMAIL = 'Foodtruckarenas@gmail.com';
+export const ADMIN_EMAILS = [
+  'Foodtruckarenas@gmail.com',
+  'issiahmclean1999@gmail.com',
+];
 export const APP_NAME = 'Food Truck Arena Commissary';
 
 // ---- Day-of-week type for operating hours ----
