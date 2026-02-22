@@ -202,7 +202,7 @@ export function SignupForm() {
         businessName: formData.businessName,
         phone: formData.phone,
         role: 'vendor',
-        status: 'pending',
+        status: 'active',
         vehicleSize: formData.vehicleSize,
         defaultResources: {
           tables: 0,
@@ -260,9 +260,8 @@ export function SignupForm() {
             Account Created!
           </h2>
           <p className="mt-2 text-sm text-gray-500">
-            Your account has been created successfully. An admin will review your
-            application and approve your access. You will be notified by email
-            once your account is activated.
+            Your account has been created successfully. You can now sign in and
+            start booking commissary resources.
           </p>
         </div>
         <Link href="/login">

@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import type { User } from '@/lib/types';
 
@@ -40,8 +40,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (firebaseUser) {
           try {
-            // Get custom claims from the ID token result
-            const tokenResult = await firebaseUser.getIdTokenResult();
+            // Get custom claims from the ID token result (force refresh to pick up new claims)
+            const tokenResult = await firebaseUser.getIdTokenResult(true);
             const role = tokenResult.claims.role as string | undefined;
             const status = tokenResult.claims.status as string | undefined;
 
@@ -61,8 +61,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
               setUserData(mergedUserData);
             } else {
-              setUserData(null);
-              setError('User document not found in Firestore.');
+              // User doc may not exist yet (race condition during signup).
+              // Build a minimal User object from the Firebase Auth user so the
+              // app remains functional while the signup form creates the full doc.
+              const now = Timestamp.now();
+              const fallbackUser: User = {
+                id: firebaseUser.uid,
+                email: firebaseUser.email ?? '',
+                displayName: firebaseUser.displayName ?? '',
+                businessName: '',
+                phone: '',
+                role: (role as User['role']) ?? 'vendor',
+                status: (status as User['status']) ?? 'active',
+                vehicleSize: 'medium',
+                defaultResources: { tables: 0, fridges: 0, freezers: 0, storage: 0 },
+                teamMembers: [],
+                documents: [],
+                adminNotes: '',
+                profileImageUrl: '',
+                createdAt: now,
+                updatedAt: now,
+                lastLoginAt: now,
+              };
+              setUserData(fallbackUser);
             }
           } catch (err) {
             const message =
