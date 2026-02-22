@@ -44,8 +44,7 @@ export default function CommunicationsPage() {
       type: data.type,
       priority: data.priority,
       targetAudience: data.targetAudience,
-      authorId: '',
-      authorName: 'Admin',
+      createdBy: 'Admin',
       expiresAt: null,
     });
   };
@@ -120,7 +119,7 @@ export default function CommunicationsPage() {
                       {a.body}
                     </p>
                     <p className="text-xs text-gray-400">
-                      By {a.authorName} &middot; Read by {a.readBy?.length ?? 0} vendor(s)
+                      By {a.createdBy} &middot; Read by {a.readBy?.length ?? 0} vendor(s)
                     </p>
                   </div>
                   <Button
