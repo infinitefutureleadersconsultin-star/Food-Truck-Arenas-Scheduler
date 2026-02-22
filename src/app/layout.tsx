@@ -3,6 +3,10 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { ClientProviders } from './providers';
 
+// Force dynamic rendering for all pages – Firebase requires runtime env vars
+// that are not available during static generation at build time.
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700', '800'],

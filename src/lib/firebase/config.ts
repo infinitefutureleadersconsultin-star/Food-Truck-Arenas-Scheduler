@@ -13,11 +13,23 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Prevent re-initialization when hot-reloading in development
-const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+// Guard: skip Firebase initialization when API key is not available (e.g. during build).
+// At runtime on Vercel the env vars are present so this always initializes properly.
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
 
-const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app);
-const storage: FirebaseStorage = getStorage(app);
+if (firebaseConfig.apiKey) {
+  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+} else {
+  app = {} as FirebaseApp;
+  auth = {} as Auth;
+  db = {} as Firestore;
+  storage = {} as FirebaseStorage;
+}
 
 export { app, auth, db, storage };
