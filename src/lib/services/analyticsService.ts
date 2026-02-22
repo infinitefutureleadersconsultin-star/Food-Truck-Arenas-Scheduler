@@ -61,7 +61,7 @@ export async function getResourceUtilization(range: DateRange): Promise<Utilizat
   return types.map((type) => {
     const totalSlots = type.totalQuantity * getDayCount(range) * 16;
     const usedSlots = bookings.reduce((acc, b) => {
-      const requested = b.resourceRequests?.[type.slug] || 0;
+      const requested = b.resourceRequests?.[type.id] || 0;
       const duration = getBookingDurationHours(b);
       return acc + requested * duration;
     }, 0);
