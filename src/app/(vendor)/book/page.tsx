@@ -45,7 +45,6 @@ try {
 
 // Attempt to pull in the real component (no-op if not yet built)
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const mod = require('@/components/booking/FloorPlanView');
   if (mod?.FloorPlanView) FloorPlanView = mod.FloorPlanView;
   else if (mod?.default) FloorPlanView = mod.default;
