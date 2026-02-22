@@ -231,11 +231,11 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div className="rounded-lg border px-4 py-3">
                 <p className="text-xs text-gray-500">Min Duration</p>
-                <p className="font-semibold">{settings.bookingRules.minBookingDuration} hrs</p>
+                <p className="font-semibold">{settings.bookingRules.minBookingDuration} min</p>
               </div>
               <div className="rounded-lg border px-4 py-3">
                 <p className="text-xs text-gray-500">Max Duration</p>
-                <p className="font-semibold">{settings.bookingRules.maxBookingDuration} hrs</p>
+                <p className="font-semibold">{settings.bookingRules.maxBookingDuration} min</p>
               </div>
               <div className="rounded-lg border px-4 py-3">
                 <p className="text-xs text-gray-500">Booking Cutoff</p>

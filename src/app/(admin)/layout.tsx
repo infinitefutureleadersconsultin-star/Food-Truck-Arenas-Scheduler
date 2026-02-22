@@ -21,13 +21,12 @@ import {
 } from 'lucide-react';
 
 const adminNavItems = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
   { href: '/admin/vendors', label: 'Vendors', icon: Users },
   { href: '/admin/resources', label: 'Resources', icon: Building2 },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/admin/announcements', label: 'Announcements', icon: Bell },
-  { href: '/admin/messages', label: 'Messages', icon: MessageSquare },
+  { href: '/admin/communications', label: 'Communications', icon: Bell },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -90,8 +89,8 @@ export default function AdminLayout({
             <ul className="space-y-1">
               {adminNavItems.map((item) => {
                 const isActive =
-                  item.href === '/admin'
-                    ? pathname === '/admin'
+                  item.href === '/admin/dashboard'
+                    ? pathname === '/admin/dashboard' || pathname === '/admin'
                     : pathname.startsWith(item.href);
                 return (
                   <li key={item.href}>
@@ -206,7 +205,7 @@ export default function AdminLayout({
             </div>
             <div className="ml-auto flex items-center gap-3">
               <Link
-                href="/admin/announcements"
+                href="/admin/communications"
                 className="relative rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
               >
                 <Bell className="h-5 w-5" />
