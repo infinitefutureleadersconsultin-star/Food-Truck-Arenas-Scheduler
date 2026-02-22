@@ -148,12 +148,12 @@ export async function getTableUsage(range: DateRange): Promise<TableUsageData[]>
 
 export async function getAttendanceSummary(range: DateRange) {
   const q = query(
-    collection(db, 'attendanceLogs'),
+    collection(db, 'attendance'),
     where('date', '>=', range.startDate),
     where('date', '<=', range.endDate)
   );
   const snapshot = await getDocs(q);
-  const logs = snapshot.docs.map((d) => d.data() as AttendanceLog);
+  const logs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceLog));
 
   const total = logs.length;
   const onTime = logs.filter((l) => l.status === 'on_time' || l.status === 'completed').length;
