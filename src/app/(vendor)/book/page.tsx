@@ -10,6 +10,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { FloorPlanView } from '@/components/booking/FloorPlanView';
 import { useTodaysBookings } from '@/lib/hooks/useBookings';
 import { useResources } from '@/lib/hooks/useResources';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,41 +24,11 @@ import { formatDate, formatTime } from '@/lib/utils/dateUtils';
 import type { Booking, Resource } from '@/lib/types';
 
 // ---------------------------------------------------------------------------
-// FloorPlanView placeholder -- uses the real component when available
-// ---------------------------------------------------------------------------
-
-let FloorPlanView: React.ComponentType<{ date: string }>;
-try {
-  // Dynamic import at module level won't work in a try/catch.
-  // Instead we define a lazy fallback that gets replaced by the import below.
-  FloorPlanView = ({ date }: { date: string }) => (
-    <div className="flex min-h-[400px] items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400">
-      <div className="text-center">
-        <CalendarIcon className="mx-auto mb-2 h-10 w-10" />
-        <p className="text-sm font-medium">Floor Plan View</p>
-        <p className="text-xs">Interactive floor plan for {formatDate(date, 'MMM d, yyyy')}</p>
-      </div>
-    </div>
-  );
-} catch {
-  // keep fallback
-}
-
-// Attempt to pull in the real component (no-op if not yet built)
-try {
-  const mod = require('@/components/booking/FloorPlanView');
-  if (mod?.FloorPlanView) FloorPlanView = mod.FloorPlanView;
-  else if (mod?.default) FloorPlanView = mod.default;
-} catch {
-  // keep fallback
-}
-
-// ---------------------------------------------------------------------------
 // Book Page
 // ---------------------------------------------------------------------------
 
 export default function BookPage() {
-  const { userData } = useAuthContext();
+  const { user, userData } = useAuthContext();
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0],
   );
@@ -165,7 +136,11 @@ export default function BookPage() {
             <LoadingSpinner size="lg" />
           </div>
         ) : (
-          <FloorPlanView date={selectedDate} />
+          <FloorPlanView
+            selectedDate={new Date(selectedDate + 'T00:00:00')}
+            onDateChange={(d) => setSelectedDate(d.toISOString().split('T')[0])}
+            currentUserId={user?.uid}
+          />
         )}
       </div>
 

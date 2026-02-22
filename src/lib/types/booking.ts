@@ -63,6 +63,7 @@ export interface WaitlistEntry {
   preferredStartTime: string;
   preferredEndTime: string;
   resourceRequests: Record<string, number>;
+  notes: string;
   status: WaitlistStatus;
   notifiedAt: Timestamp | null;
   createdAt: Timestamp;
