@@ -22,21 +22,8 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils/cn';
 import { formatDate, formatTime } from '@/lib/utils/dateUtils';
+import { useAnnouncements } from '@/lib/hooks/useAnnouncements';
 import type { Booking, Announcement } from '@/lib/types';
-
-// ---------------------------------------------------------------------------
-// Hooks for announcements (local stub -- wired to context when available)
-// ---------------------------------------------------------------------------
-
-function useAnnouncements() {
-  // Placeholder: in production this would subscribe to Firestore.
-  // Returns an empty array so the page renders cleanly before data is wired.
-  return {
-    announcements: [] as Announcement[],
-    loading: false,
-    error: null as string | null,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Stat Card

@@ -25,20 +25,8 @@ import {
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils/cn';
+import { useAnnouncements } from '@/lib/hooks/useAnnouncements';
 import type { Announcement, AnnouncementType, AnnouncementPriority } from '@/lib/types';
-
-// ---------------------------------------------------------------------------
-// useAnnouncements hook (placeholder wired to local state)
-// ---------------------------------------------------------------------------
-
-function useAnnouncements() {
-  // Placeholder: in production this subscribes to Firestore announcements.
-  return {
-    announcements: [] as Announcement[],
-    loading: false,
-    error: null as string | null,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Type/priority visual config
