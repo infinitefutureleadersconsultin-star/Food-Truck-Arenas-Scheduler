@@ -2,13 +2,15 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
 interface BookingData {
-  vendorId: string;
-  vendorName?: string;
-  bayId: string;
+  userId: string;
+  userName?: string;
+  businessName?: string;
   date: string;
   startTime: string;
   endTime: string;
   status: string;
+  resources: { resourceId: string; resourceTypeId: string; resourceName: string; resourceTypeName: string }[];
+  resourceRequests: Record<string, number>;
   checkedInAt?: admin.firestore.Timestamp;
   updatedAt?: admin.firestore.Timestamp;
 }
@@ -75,45 +77,56 @@ async function handleCancellation(
   functions.logger.info(
     `Checking waitlist for cancelled booking ${bookingId}`,
     {
-      bayId: bookingData.bayId,
       date: bookingData.date,
       startTime: bookingData.startTime,
     }
   );
 
-  // Query the waitlist for matching bay, date, and time slot
+  // Query the waitlist for matching date and overlapping time slot
   const waitlistQuery = await db
     .collection("waitlist")
-    .where("bayId", "==", bookingData.bayId)
     .where("date", "==", bookingData.date)
-    .where("startTime", "==", bookingData.startTime)
     .where("status", "==", "waiting")
     .orderBy("createdAt", "asc")
-    .limit(1)
+    .limit(10)
     .get();
 
   if (waitlistQuery.empty) {
     functions.logger.info(
-      `No waitlisted vendors for slot: bay=${bookingData.bayId}, date=${bookingData.date}, time=${bookingData.startTime}`
+      `No waitlisted vendors for date=${bookingData.date}`
     );
     return;
   }
 
-  const waitlistEntry = waitlistQuery.docs[0];
-  const waitlistData = waitlistEntry.data();
+  // Find the first waitlist entry whose preferred time overlaps with the cancelled slot
+  const matchingEntry = waitlistQuery.docs.find((doc) => {
+    const data = doc.data();
+    return (
+      data.preferredStartTime < bookingData.endTime &&
+      data.preferredEndTime > bookingData.startTime
+    );
+  });
 
-  // Update waitlist entry status to 'offered'
-  await waitlistEntry.ref.update({
-    status: "offered",
-    offeredAt: admin.firestore.FieldValue.serverTimestamp(),
+  if (!matchingEntry) {
+    functions.logger.info(
+      `No waitlisted vendors match the time slot for date=${bookingData.date}, time=${bookingData.startTime}-${bookingData.endTime}`
+    );
+    return;
+  }
+
+  const waitlistData = matchingEntry.data();
+
+  // Update waitlist entry status to 'notified'
+  await matchingEntry.ref.update({
+    status: "notified",
+    notifiedAt: admin.firestore.FieldValue.serverTimestamp(),
     offeredBookingId: bookingId,
   });
 
   // Stub: Send notification to the waitlisted vendor
   console.log(
-    `[NOTIFICATION STUB] Slot available for vendor ${waitlistData.vendorId}`,
+    `[NOTIFICATION STUB] Slot available for vendor ${waitlistData.userId}`,
     {
-      bayId: bookingData.bayId,
       date: bookingData.date,
       startTime: bookingData.startTime,
       endTime: bookingData.endTime,
@@ -121,7 +134,7 @@ async function handleCancellation(
   );
 
   functions.logger.info(
-    `Waitlist entry ${waitlistEntry.id} offered to vendor ${waitlistData.vendorId}`
+    `Waitlist entry ${matchingEntry.id} notified for vendor ${waitlistData.userId}`
   );
 }
 
@@ -136,19 +149,19 @@ async function handleNoShow(
 ): Promise<void> {
   const attendanceLog = {
     bookingId,
-    vendorId: bookingData.vendorId,
-    vendorName: bookingData.vendorName || null,
-    bayId: bookingData.bayId,
+    userId: bookingData.userId,
+    userName: bookingData.userName || null,
+    businessName: bookingData.businessName || null,
     date: bookingData.date,
     startTime: bookingData.startTime,
     endTime: bookingData.endTime,
-    type: "no_show",
+    status: "no_show",
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
   await db.collection("attendanceLogs").add(attendanceLog);
 
   functions.logger.info(
-    `Attendance log (no_show) created for booking ${bookingId}, vendor ${bookingData.vendorId}`
+    `Attendance log (no_show) created for booking ${bookingId}, user ${bookingData.userId}`
   );
 }

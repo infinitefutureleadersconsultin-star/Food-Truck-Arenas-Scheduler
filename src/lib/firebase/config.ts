@@ -26,6 +26,14 @@ if (firebaseConfig.apiKey) {
   db = getFirestore(app);
   storage = getStorage(app);
 } else {
+  // During build time (e.g. next build on Vercel), Firebase env vars may not be set.
+  // This is expected and these stubs will never be called at build time.
+  if (typeof window !== 'undefined') {
+    console.warn(
+      'Firebase API key not found. Firebase services will not work. ' +
+      'Ensure NEXT_PUBLIC_FIREBASE_API_KEY is set in your environment.'
+    );
+  }
   app = {} as FirebaseApp;
   auth = {} as Auth;
   db = {} as Firestore;

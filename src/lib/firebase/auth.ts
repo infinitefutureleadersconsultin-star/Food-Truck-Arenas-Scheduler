@@ -19,15 +19,25 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<UserCredential> {
-  return signInWithEmailAndPassword(auth, email, password);
+  try {
+    return await signInWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error('Error signing in with email:', error);
+    throw error;
+  }
 }
 
 /**
  * Sign in with Google via popup.
  */
 export async function signInWithGoogle(): Promise<UserCredential> {
-  const provider = new GoogleAuthProvider();
-  return signInWithPopup(auth, provider);
+  try {
+    const provider = new GoogleAuthProvider();
+    return await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.error('Error signing in with Google:', error);
+    throw error;
+  }
 }
 
 /**
@@ -37,21 +47,36 @@ export async function signUpWithEmail(
   email: string,
   password: string
 ): Promise<UserCredential> {
-  return createUserWithEmailAndPassword(auth, email, password);
+  try {
+    return await createUserWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error('Error creating account:', error);
+    throw error;
+  }
 }
 
 /**
  * Sign out the current user.
  */
 export async function signOutUser(): Promise<void> {
-  return signOut(auth);
+  try {
+    return await signOut(auth);
+  } catch (error) {
+    console.error('Error signing out:', error);
+    throw error;
+  }
 }
 
 /**
  * Send a password reset email.
  */
 export async function resetPassword(email: string): Promise<void> {
-  return sendPasswordResetEmail(auth, email);
+  try {
+    return await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw error;
+  }
 }
 
 /**
@@ -76,9 +101,14 @@ export function onAuthStateChange(
  * Returns null if no user is signed in.
  */
 export async function getUserClaims(): Promise<Record<string, unknown> | null> {
-  const user = auth.currentUser;
-  if (!user) return null;
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
 
-  const tokenResult = await user.getIdTokenResult();
-  return tokenResult.claims as Record<string, unknown>;
+    const tokenResult = await user.getIdTokenResult();
+    return tokenResult.claims as Record<string, unknown>;
+  } catch (error) {
+    console.error('Error getting user claims:', error);
+    throw error;
+  }
 }

@@ -16,45 +16,70 @@ import { Message } from '@/lib/types';
 const COLLECTION = 'messages';
 
 export async function sendMessage(data: Omit<Message, 'id' | 'createdAt' | 'isRead'>): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTION), {
-    ...data,
-    isRead: false,
-    createdAt: Timestamp.now(),
-  });
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, COLLECTION), {
+      ...data,
+      isRead: false,
+      createdAt: Timestamp.now(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error sending message:', error);
+    throw error;
+  }
 }
 
 export async function getMessages(
   userId: string,
   type: 'sent' | 'received' = 'received'
 ): Promise<Message[]> {
-  const field = type === 'sent' ? 'senderId' : 'receiverId';
-  const q = query(
-    collection(db, COLLECTION),
-    where(field, '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Message));
+  try {
+    const field = type === 'sent' ? 'senderId' : 'receiverId';
+    const q = query(
+      collection(db, COLLECTION),
+      where(field, '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Message));
+  } catch (error) {
+    console.error('Error getting messages:', error);
+    throw error;
+  }
 }
 
 export async function getMessage(id: string): Promise<Message | null> {
-  const docRef = doc(db, COLLECTION, id);
-  const snapshot = await getDoc(docRef);
-  if (!snapshot.exists()) return null;
-  return { id: snapshot.id, ...snapshot.data() } as Message;
+  try {
+    const docRef = doc(db, COLLECTION, id);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return null;
+    return { id: snapshot.id, ...snapshot.data() } as Message;
+  } catch (error) {
+    console.error('Error getting message:', error);
+    throw error;
+  }
 }
 
 export async function markMessageRead(id: string): Promise<void> {
-  await updateDoc(doc(db, COLLECTION, id), { isRead: true });
+  try {
+    await updateDoc(doc(db, COLLECTION, id), { isRead: true });
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    throw error;
+  }
 }
 
 export async function getUnreadCount(userId: string): Promise<number> {
-  const q = query(
-    collection(db, COLLECTION),
-    where('receiverId', '==', userId),
-    where('isRead', '==', false)
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.size;
+  try {
+    const q = query(
+      collection(db, COLLECTION),
+      where('receiverId', '==', userId),
+      where('isRead', '==', false)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.size;
+  } catch (error) {
+    console.error('Error getting unread count:', error);
+    throw error;
+  }
 }

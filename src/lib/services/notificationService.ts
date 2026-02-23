@@ -30,51 +30,77 @@ export async function createNotification(
   message: string,
   type: 'info' | 'success' | 'warning' | 'error' = 'info'
 ): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTION), {
-    userId,
-    title,
-    message,
-    type,
-    read: false,
-    createdAt: Timestamp.now(),
-  });
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, COLLECTION), {
+      userId,
+      title,
+      message,
+      type,
+      read: false,
+      createdAt: Timestamp.now(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    throw error;
+  }
 }
 
 export async function getUserNotifications(userId: string): Promise<AppNotification[]> {
-  const q = query(
-    collection(db, COLLECTION),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification));
+  try {
+    const q = query(
+      collection(db, COLLECTION),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification));
+  } catch (error) {
+    console.error('Error getting user notifications:', error);
+    throw error;
+  }
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
-  await updateDoc(doc(db, COLLECTION, id), { read: true });
+  try {
+    await updateDoc(doc(db, COLLECTION, id), { read: true });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    throw error;
+  }
 }
 
 export async function markAllRead(userId: string): Promise<void> {
-  const q = query(
-    collection(db, COLLECTION),
-    where('userId', '==', userId),
-    where('read', '==', false)
-  );
-  const snapshot = await getDocs(q);
-  const batch = writeBatch(db);
-  snapshot.docs.forEach((d) => {
-    batch.update(d.ref, { read: true });
-  });
-  await batch.commit();
+  try {
+    const q = query(
+      collection(db, COLLECTION),
+      where('userId', '==', userId),
+      where('read', '==', false)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return;
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { read: true });
+    });
+    await batch.commit();
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    throw error;
+  }
 }
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
-  const q = query(
-    collection(db, COLLECTION),
-    where('userId', '==', userId),
-    where('read', '==', false)
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.size;
+  try {
+    const q = query(
+      collection(db, COLLECTION),
+      where('userId', '==', userId),
+      where('read', '==', false)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.size;
+  } catch (error) {
+    console.error('Error getting unread notification count:', error);
+    throw error;
+  }
 }

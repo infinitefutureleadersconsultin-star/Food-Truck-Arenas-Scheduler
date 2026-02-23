@@ -140,9 +140,23 @@ export async function createBooking(
       const now = Timestamp.now();
       const newBookingRef = doc(collection(db, BOOKINGS_COLLECTION));
 
+      // Compute Timestamp versions of date+time for scheduled Cloud Functions
+      // (e.g. detectNoShows queries on startTimestamp)
+      const [year, month, day] = bookingData.date.split('-').map(Number);
+      const [startH, startM] = bookingData.startTime.split(':').map(Number);
+      const [endH, endM] = bookingData.endTime.split(':').map(Number);
+      const startTimestamp = Timestamp.fromDate(
+        new Date(year, month - 1, day, startH, startM)
+      );
+      const endTimestamp = Timestamp.fromDate(
+        new Date(year, month - 1, day, endH, endM)
+      );
+
       transaction.set(newBookingRef, {
         ...bookingData,
         resources: allocatedResources,
+        startTimestamp,
+        endTimestamp,
         createdAt: now,
         updatedAt: now,
       });
