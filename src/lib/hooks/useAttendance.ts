@@ -3,7 +3,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   QueryConstraint,
 } from 'firebase/firestore';
 import { getDocuments } from '@/lib/firebase/firestore';
@@ -54,24 +53,27 @@ export function useAttendance(options?: UseAttendanceOptions) {
     try {
       const constraints: QueryConstraint[] = [];
 
-      // Filter by user - default to current user if no userId provided
+      // Use at most one where() to avoid composite index requirement.
+      // Filter the rest client-side.
       const targetUserId = options?.userId ?? user?.uid;
       if (targetUserId) {
         constraints.push(where('userId', '==', targetUserId));
       }
 
-      // Filter by date range
-      if (options?.dateRange) {
-        constraints.push(where('date', '>=', options.dateRange.start));
-        constraints.push(where('date', '<=', options.dateRange.end));
-      }
-
-      constraints.push(orderBy('date', 'desc'));
-
-      const results = await getDocuments<AttendanceLog>(
+      let results = await getDocuments<AttendanceLog>(
         'attendance',
         ...constraints
       );
+
+      // Client-side filter by date range
+      if (options?.dateRange) {
+        results = results.filter(
+          (log) => log.date >= options.dateRange!.start && log.date <= options.dateRange!.end
+        );
+      }
+
+      // Sort client-side
+      results.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
       setLogs(results);
     } catch (err) {
       const message =

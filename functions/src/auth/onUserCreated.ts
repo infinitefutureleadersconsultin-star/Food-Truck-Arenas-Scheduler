@@ -3,7 +3,6 @@ import * as admin from "firebase-admin";
 
 const ADMIN_EMAILS = [
   "Foodtruckarenas@gmail.com",
-  "issiahmclean1999@gmail.com",
 ];
 
 /**
@@ -53,7 +52,7 @@ export const onUserCreated = functions.auth.user().onCreate(
         userDoc.flaggedForReview = false;
       }
 
-      await db.collection("users").doc(uid).set(userDoc);
+      await db.collection("users").doc(uid).set(userDoc, { merge: true });
 
       functions.logger.info(
         `User document created for ${uid} with role: ${customClaims.role}`

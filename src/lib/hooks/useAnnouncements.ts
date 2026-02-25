@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   query,
-  where,
-  orderBy,
   onSnapshot,
   doc,
   updateDoc,
@@ -34,12 +32,8 @@ export function useAnnouncements(active: boolean = true) {
 
     const announcementsRef = collection(db, 'announcements');
 
-    // Build query constraints
-    const constraints = active
-      ? [orderBy('createdAt', 'desc')]
-      : [orderBy('createdAt', 'desc')];
-
-    const q = query(announcementsRef, ...constraints);
+    // No orderBy — sort client-side to avoid index requirement
+    const q = query(announcementsRef);
 
     const unsubscribe = onSnapshot(
       q,
@@ -55,6 +49,13 @@ export function useAnnouncements(active: boolean = true) {
             (a) => a.expiresAt === null || a.expiresAt > now
           );
         }
+
+        // Sort newest first client-side
+        results.sort((a, b) => {
+          const aTime = a.createdAt?.toMillis?.() ?? 0;
+          const bTime = b.createdAt?.toMillis?.() ?? 0;
+          return bTime - aTime;
+        });
 
         setAnnouncements(results);
         setLoading(false);

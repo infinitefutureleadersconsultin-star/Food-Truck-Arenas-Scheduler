@@ -3,7 +3,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -27,18 +26,19 @@ export function useResources(typeId?: string) {
 
     const resourcesRef = collection(db, 'resources');
 
+    // Only use where() filter — sort client-side to avoid composite index requirement
     const constraints = typeId
-      ? [where('typeId', '==', typeId), orderBy('name', 'asc')]
-      : [orderBy('name', 'asc')];
+      ? [where('typeId', '==', typeId)]
+      : [];
 
     const q = query(resourcesRef, ...constraints);
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const results = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() }) as Resource
-        );
+        const results = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }) as Resource)
+          .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
         setResources(results);
         setLoading(false);
       },
@@ -90,20 +90,27 @@ export function useAvailableResources(
       setError(null);
 
       try {
-        // 1. Get all resources of this type that are in "available" status
-        const allResources = await getDocuments<Resource>(
+        // 1. Get all resources of this type — filter status client-side
+        //    to avoid composite index requirement
+        const allResourcesRaw = await getDocuments<Resource>(
           'resources',
-          where('typeId', '==', typeId),
-          where('status', '==', 'available')
+          where('typeId', '==', typeId)
+        );
+        const allResources = allResourcesRaw.filter(
+          (r) => r.status === 'available'
         );
 
-        // 2. Get bookings that overlap with the requested window
-        const overlapping = await getDocuments<{
+        // 2. Get bookings for the date — filter status client-side
+        const overlappingRaw = await getDocuments<{
           resources: { resourceId: string }[];
+          status: string;
         }>(
           'bookings',
-          where('date', '==', date),
-          where('status', 'in', ['confirmed', 'checked_in', 'pending'])
+          where('date', '==', date)
+        );
+        const activeStatuses = new Set(['confirmed', 'checked_in', 'pending']);
+        const overlapping = overlappingRaw.filter(
+          (b) => activeStatuses.has(b.status)
         );
 
         // Collect resource IDs that are booked during the window

@@ -8,6 +8,7 @@ import {
   Users,
   Info,
   Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { FloorPlanView } from '@/components/booking/FloorPlanView';
@@ -33,8 +34,9 @@ export default function BookPage() {
     new Date().toISOString().split('T')[0],
   );
 
-  const { bookings, loading: bookingsLoading } = useTodaysBookings(selectedDate);
-  const { resources, loading: resourcesLoading } = useResources();
+  const { bookings, loading: bookingsLoading, error: bookingsError } = useTodaysBookings(selectedDate);
+  const { resources, loading: resourcesLoading, error: resourcesError } = useResources();
+  const loadError = bookingsError || resourcesError;
 
   // Capacity summary
   const capacitySummary = useMemo(() => {
@@ -137,6 +139,16 @@ export default function BookPage() {
         {isLoading ? (
           <div className="flex min-h-[400px] items-center justify-center">
             <LoadingSpinner size="lg" />
+          </div>
+        ) : loadError ? (
+          <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+            <AlertTriangle className="h-10 w-10 text-red-500" />
+            <p className="text-sm text-gray-600">
+              Failed to load booking data: {loadError}
+            </p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
           </div>
         ) : (
           <FloorPlanView

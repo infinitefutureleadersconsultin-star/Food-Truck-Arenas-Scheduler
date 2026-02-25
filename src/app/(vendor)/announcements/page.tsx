@@ -67,7 +67,7 @@ const FILTER_OPTIONS: { value: string; label: string }[] = [
 
 export default function AnnouncementsPage() {
   const { user } = useAuthContext();
-  const { announcements, loading, error } = useAnnouncements();
+  const { announcements, loading, error, markRead } = useAnnouncements();
 
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -90,17 +90,19 @@ export default function AnnouncementsPage() {
     return list;
   }, [announcements, typeFilter]);
 
-  const toggleExpand = useCallback((id: string) => {
+  const toggleExpand = useCallback((id: string, isUnread: boolean) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
       } else {
         next.add(id);
+        // Mark as read when expanding an unread announcement
+        if (isUnread) markRead(id);
       }
       return next;
     });
-  }, []);
+  }, [markRead]);
 
   if (loading) {
     return (
@@ -176,7 +178,7 @@ export default function AnnouncementsPage() {
                 <button
                   type="button"
                   className="w-full text-left"
-                  onClick={() => toggleExpand(announcement.id)}
+                  onClick={() => toggleExpand(announcement.id, isUnread)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">

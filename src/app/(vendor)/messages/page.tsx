@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Mail,
   MailOpen,
@@ -46,7 +46,7 @@ import type { Message, MessageType } from '@/lib/types';
 
 export default function MessagesPage() {
   const { user, userData } = useAuthContext();
-  const { messages, loading, error, refetch } = useMessages();
+  const { messages, loading, error, refetch, markRead } = useMessages();
 
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
@@ -72,7 +72,11 @@ export default function MessagesPage() {
   const handleSelectMessage = useCallback((msg: Message) => {
     setSelectedMessage(msg);
     setShowDetail(true);
-  }, []);
+    // Mark unread messages as read when opened
+    if (!msg.isRead) {
+      markRead(msg.id);
+    }
+  }, [markRead]);
 
   const handleBack = useCallback(() => {
     setShowDetail(false);
@@ -313,10 +317,19 @@ function ComposeDialog({
   replyTo,
   onSent,
 }: ComposeDialogProps) {
-  const [subject, setSubject] = useState(replyTo ? `Re: ${replyTo.subject}` : '');
+  const [subject, setSubject] = useState('');
   const [messageType, setMessageType] = useState<MessageType>('general');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+
+  // Reset form state when dialog opens or replyTo changes
+  useEffect(() => {
+    if (open) {
+      setSubject(replyTo ? `Re: ${replyTo.subject}` : '');
+      setMessageType('general');
+      setBody('');
+    }
+  }, [open, replyTo]);
 
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) return;

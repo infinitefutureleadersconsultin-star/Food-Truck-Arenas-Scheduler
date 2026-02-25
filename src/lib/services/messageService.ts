@@ -7,7 +7,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -37,11 +36,17 @@ export async function getMessages(
     const field = type === 'sent' ? 'senderId' : 'receiverId';
     const q = query(
       collection(db, COLLECTION),
-      where(field, '==', userId),
-      orderBy('createdAt', 'desc')
+      where(field, '==', userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Message));
+    const messages = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Message));
+    // Sort client-side to avoid requiring a composite index
+    messages.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis?.() ?? 0;
+      const bTime = b.createdAt?.toMillis?.() ?? 0;
+      return bTime - aTime;
+    });
+    return messages;
   } catch (error) {
     console.error('Error getting messages:', error);
     throw error;
@@ -71,13 +76,13 @@ export async function markMessageRead(id: string): Promise<void> {
 
 export async function getUnreadCount(userId: string): Promise<number> {
   try {
+    // Only filter by receiverId — count unread client-side to avoid composite index requirement
     const q = query(
       collection(db, COLLECTION),
-      where('receiverId', '==', userId),
-      where('isRead', '==', false)
+      where('receiverId', '==', userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.size;
+    return snapshot.docs.filter((d) => d.data().isRead === false).length;
   } catch (error) {
     console.error('Error getting unread count:', error);
     throw error;
