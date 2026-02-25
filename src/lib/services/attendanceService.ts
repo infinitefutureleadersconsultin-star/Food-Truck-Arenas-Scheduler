@@ -7,7 +7,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   Timestamp,
   writeBatch,
 } from 'firebase/firestore';
@@ -68,7 +67,6 @@ export async function getAttendanceByUser(
   try {
     const constraints = [
       where('userId', '==', userId),
-      orderBy('date', 'desc'),
     ];
 
     const q = query(collection(db, ATTENDANCE_COLLECTION), ...constraints);
@@ -84,6 +82,9 @@ export async function getAttendanceByUser(
         (r) => r.date >= dateRange.start && r.date <= dateRange.end
       );
     }
+
+    // Sort client-side to avoid requiring a composite index
+    records.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
     return records;
   } catch (error) {
@@ -101,14 +102,18 @@ export async function getAttendanceByDate(
   try {
     const q = query(
       collection(db, ATTENDANCE_COLLECTION),
-      where('date', '==', date),
-      orderBy('scheduledStart', 'asc')
+      where('date', '==', date)
     );
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
+    const records = snapshot.docs.map(
       (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as AttendanceLog
     );
+
+    // Sort client-side to avoid requiring a composite index
+    records.sort((a, b) => (a.scheduledStart ?? '').localeCompare(b.scheduledStart ?? ''));
+
+    return records;
   } catch (error) {
     console.error('Error getting attendance by date:', error);
     throw error;

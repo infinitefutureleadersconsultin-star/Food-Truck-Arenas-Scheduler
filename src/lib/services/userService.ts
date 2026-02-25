@@ -81,9 +81,9 @@ export async function updateUser(
  */
 export async function getAllVendors(status?: UserStatus): Promise<User[]> {
   try {
+    // Only use where() filters — sort client-side to avoid composite index requirement
     const constraints: QueryConstraint[] = [
       where('role', '==', 'vendor'),
-      orderBy('businessName', 'asc'),
     ];
 
     if (status) {
@@ -93,9 +93,13 @@ export async function getAllVendors(status?: UserStatus): Promise<User[]> {
     const q = query(collection(db, USERS_COLLECTION), ...constraints);
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
+    const vendors = snapshot.docs.map(
       (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as User
     );
+
+    // Sort client-side
+    vendors.sort((a, b) => (a.businessName ?? '').localeCompare(b.businessName ?? ''));
+    return vendors;
   } catch (error) {
     console.error('Error getting all vendors:', error);
     throw error;

@@ -6,7 +6,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   Timestamp,
   writeBatch,
 } from 'firebase/firestore';
@@ -50,11 +49,17 @@ export async function getUserNotifications(userId: string): Promise<AppNotificat
   try {
     const q = query(
       collection(db, COLLECTION),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification));
+    const notifications = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification));
+    // Sort client-side to avoid requiring a composite index
+    notifications.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis?.() ?? 0;
+      const bTime = b.createdAt?.toMillis?.() ?? 0;
+      return bTime - aTime;
+    });
+    return notifications;
   } catch (error) {
     console.error('Error getting user notifications:', error);
     throw error;

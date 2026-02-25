@@ -7,7 +7,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   Timestamp,
   runTransaction,
   QueryConstraint,
@@ -201,7 +200,6 @@ export async function getBookingsByUser(
   try {
     const constraints: QueryConstraint[] = [
       where('userId', '==', userId),
-      orderBy('date', 'desc'),
     ];
 
     if (options?.status && options.status.length > 0) {
@@ -224,6 +222,9 @@ export async function getBookingsByUser(
       );
     }
 
+    // Sort client-side to avoid requiring a composite index
+    bookings.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+
     return bookings;
   } catch (error) {
     console.error('Error getting bookings by user:', error);
@@ -241,7 +242,6 @@ export async function getBookingsByDate(
   try {
     const constraints: QueryConstraint[] = [
       where('date', '==', date),
-      orderBy('startTime', 'asc'),
     ];
 
     if (status && status.length > 0) {
@@ -251,9 +251,14 @@ export async function getBookingsByDate(
     const q = query(collection(db, BOOKINGS_COLLECTION), ...constraints);
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
+    const bookings = snapshot.docs.map(
       (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Booking
     );
+
+    // Sort client-side to avoid requiring a composite index
+    bookings.sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+
+    return bookings;
   } catch (error) {
     console.error('Error getting bookings by date:', error);
     throw error;

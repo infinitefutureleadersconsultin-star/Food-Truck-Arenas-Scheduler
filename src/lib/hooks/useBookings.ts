@@ -3,7 +3,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
   QueryConstraint,
 } from 'firebase/firestore';
@@ -26,6 +25,9 @@ interface UseBookingsOptions {
  *
  * Accepts optional filters for userId, date (YYYY-MM-DD), and status.
  * Performs an initial fetch and exposes a manual `refetch` function.
+ *
+ * Sorting is performed client-side to avoid requiring Firestore composite
+ * indexes that may not be deployed.
  */
 export function useBookings(options?: UseBookingsOptions) {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -49,9 +51,9 @@ export function useBookings(options?: UseBookingsOptions) {
         constraints.push(where('status', '==', options.status));
       }
 
-      constraints.push(orderBy('date', 'desc'));
-
+      // No orderBy — sort client-side to avoid composite index requirement
       const results = await getDocuments<Booking>('bookings', ...constraints);
+      results.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
       setBookings(results);
     } catch (err) {
       const message =
@@ -130,6 +132,8 @@ export function useUserBookings() {
  *
  * Uses Firestore `onSnapshot` so the data stays in sync automatically.
  * Defaults to today's date (YYYY-MM-DD) when no date is provided.
+ *
+ * Sorting is performed client-side to avoid requiring a composite index.
  */
 export function useTodaysBookings(date?: string) {
   const targetDate =
@@ -144,18 +148,18 @@ export function useTodaysBookings(date?: string) {
     setError(null);
 
     const bookingsRef = collection(db, 'bookings');
+    // Only filter by date — sort client-side to avoid composite index requirement
     const q = query(
       bookingsRef,
-      where('date', '==', targetDate),
-      orderBy('startTime', 'asc')
+      where('date', '==', targetDate)
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const results = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() }) as Booking
-        );
+        const results = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }) as Booking)
+          .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
         setBookings(results);
         setLoading(false);
       },

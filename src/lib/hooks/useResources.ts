@@ -27,18 +27,19 @@ export function useResources(typeId?: string) {
 
     const resourcesRef = collection(db, 'resources');
 
+    // Only use where() filter — sort client-side to avoid composite index requirement
     const constraints = typeId
-      ? [where('typeId', '==', typeId), orderBy('name', 'asc')]
-      : [orderBy('name', 'asc')];
+      ? [where('typeId', '==', typeId)]
+      : [];
 
     const q = query(resourcesRef, ...constraints);
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const results = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() }) as Resource
-        );
+        const results = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }) as Resource)
+          .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
         setResources(results);
         setLoading(false);
       },
