@@ -5,7 +5,6 @@
 // ---- Core App Info ----
 export const ADMIN_EMAILS = [
   'Foodtruckarenas@gmail.com',
-  'issiahmclean1999@gmail.com',
 ];
 export const APP_NAME = 'Food Truck Arena Commissary';
 

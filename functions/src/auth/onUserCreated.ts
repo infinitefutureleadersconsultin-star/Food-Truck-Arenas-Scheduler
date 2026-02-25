@@ -3,7 +3,6 @@ import * as admin from "firebase-admin";
 
 const ADMIN_EMAILS = [
   "Foodtruckarenas@gmail.com",
-  "issiahmclean1999@gmail.com",
 ];
 
 /**
