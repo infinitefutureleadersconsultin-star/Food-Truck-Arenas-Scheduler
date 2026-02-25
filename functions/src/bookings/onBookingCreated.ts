@@ -2,15 +2,14 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
 interface BookingData {
-  vendorId: string;
-  vendorName?: string;
-  vendorEmail?: string;
-  bayId: string;
-  bayName?: string;
+  userId: string;
+  userName?: string;
+  businessName?: string;
   date: string;
   startTime: string;
   endTime: string;
   status: string;
+  resources: { resourceId: string; resourceTypeId: string; resourceName: string; resourceTypeName: string }[];
   createdAt: admin.firestore.Timestamp;
 }
 
@@ -29,11 +28,15 @@ export const onBookingCreated = functions.firestore
       const bookingId = context.params.bookingId;
       const bookingData = snapshot.data() as BookingData;
 
+      const resourceSummary = (bookingData.resources || [])
+        .map((r) => r.resourceTypeName)
+        .join(', ');
+
       functions.logger.info(
         `New booking created: ${bookingId}`,
         {
-          vendorId: bookingData.vendorId,
-          bayId: bookingData.bayId,
+          userId: bookingData.userId,
+          resources: resourceSummary,
           date: bookingData.date,
           startTime: bookingData.startTime,
           endTime: bookingData.endTime,
@@ -44,12 +47,12 @@ export const onBookingCreated = functions.firestore
       // Stub: Send confirmation email to vendor
       // In production, integrate with an email service (SendGrid, Mailgun, etc.)
       try {
-        if (bookingData.vendorEmail) {
+        if (bookingData.userName) {
           console.log(
-            `[EMAIL STUB] Sending booking confirmation to ${bookingData.vendorEmail}`,
+            `[EMAIL STUB] Sending booking confirmation for user ${bookingData.userName}`,
             {
               bookingId,
-              bayName: bookingData.bayName || bookingData.bayId,
+              resources: resourceSummary,
               date: bookingData.date,
               startTime: bookingData.startTime,
               endTime: bookingData.endTime,

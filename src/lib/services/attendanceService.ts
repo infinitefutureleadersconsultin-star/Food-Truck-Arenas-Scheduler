@@ -9,6 +9,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import type { AttendanceLog, AttendanceStatus } from '@/lib/types';
@@ -201,7 +202,7 @@ export async function getAttendanceStats(
  */
 export async function markNoShow(bookingId: string): Promise<void> {
   try {
-    // Update the booking status
+    // Update the booking status and create/update attendance log atomically
     const bookingRef = doc(db, BOOKINGS_COLLECTION, bookingId);
     const bookingSnap = await getDoc(bookingRef);
 
@@ -212,11 +213,6 @@ export async function markNoShow(bookingId: string): Promise<void> {
     const booking = bookingSnap.data();
     const now = Timestamp.now();
 
-    await updateDoc(bookingRef, {
-      status: 'no_show',
-      updatedAt: now,
-    });
-
     // Check if an attendance log already exists for this booking
     const existingQuery = query(
       collection(db, ATTENDANCE_COLLECTION),
@@ -224,9 +220,18 @@ export async function markNoShow(bookingId: string): Promise<void> {
     );
     const existingSnap = await getDocs(existingQuery);
 
+    // Use batch to make all writes atomic
+    const batch = writeBatch(db);
+
+    batch.update(bookingRef, {
+      status: 'no_show',
+      updatedAt: now,
+    });
+
     if (existingSnap.empty) {
       // Create a new attendance log with no-show status
-      await addDoc(collection(db, ATTENDANCE_COLLECTION), {
+      const newLogRef = doc(collection(db, ATTENDANCE_COLLECTION));
+      batch.set(newLogRef, {
         userId: booking.userId,
         userName: booking.userName,
         businessName: booking.businessName,
@@ -242,14 +247,12 @@ export async function markNoShow(bookingId: string): Promise<void> {
       });
     } else {
       // Update the existing attendance log
-      const existingDoc = existingSnap.docs[0];
-      await updateDoc(
-        doc(db, ATTENDANCE_COLLECTION, existingDoc.id),
-        {
-          status: 'no_show',
-        }
-      );
+      batch.update(existingSnap.docs[0].ref, {
+        status: 'no_show',
+      });
     }
+
+    await batch.commit();
   } catch (error) {
     console.error('Error marking no-show:', error);
     throw error;
