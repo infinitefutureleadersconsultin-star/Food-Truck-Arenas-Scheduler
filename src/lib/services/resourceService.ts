@@ -7,7 +7,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   Timestamp,
   deleteDoc,
   writeBatch,
@@ -29,16 +28,16 @@ const BOOKINGS_COLLECTION = 'bookings';
  */
 export async function getResourceTypes(): Promise<ResourceType[]> {
   try {
+    // Only use where() — sort client-side to avoid composite index requirement
     const q = query(
       collection(db, RESOURCE_TYPES_COLLECTION),
-      where('isActive', '==', true),
-      orderBy('sortOrder', 'asc')
+      where('isActive', '==', true)
     );
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
-      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as ResourceType
-    );
+    return snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as ResourceType)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   } catch (error) {
     console.error('Error getting resource types:', error);
     throw error;
@@ -139,26 +138,17 @@ export async function updateResourceType(
  */
 export async function getResources(typeId?: string): Promise<Resource[]> {
   try {
-    let q;
+    // Only use where() — sort client-side to avoid composite index requirement
+    const constraints = typeId
+      ? [where('typeId', '==', typeId)]
+      : [];
 
-    if (typeId) {
-      q = query(
-        collection(db, RESOURCES_COLLECTION),
-        where('typeId', '==', typeId),
-        orderBy('name', 'asc')
-      );
-    } else {
-      q = query(
-        collection(db, RESOURCES_COLLECTION),
-        orderBy('name', 'asc')
-      );
-    }
-
+    const q = query(collection(db, RESOURCES_COLLECTION), ...constraints);
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
-      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Resource
-    );
+    return snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Resource)
+      .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
   } catch (error) {
     console.error('Error getting resources:', error);
     throw error;

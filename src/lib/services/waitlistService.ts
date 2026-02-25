@@ -8,7 +8,6 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -44,16 +43,20 @@ export async function getWaitlistForDate(
   date: string
 ): Promise<WaitlistEntry[]> {
   try {
+    // Only filter by date — sort client-side to avoid composite index requirement
     const q = query(
       collection(db, WAITLIST_COLLECTION),
-      where('date', '==', date),
-      orderBy('createdAt', 'asc')
+      where('date', '==', date)
     );
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
-      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as WaitlistEntry
-    );
+    return snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as WaitlistEntry)
+      .sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? 0;
+        const bTime = b.createdAt?.toMillis?.() ?? 0;
+        return aTime - bTime;
+      });
   } catch (error) {
     console.error('Error getting waitlist for date:', error);
     throw error;
@@ -67,16 +70,16 @@ export async function getUserWaitlistEntries(
   userId: string
 ): Promise<WaitlistEntry[]> {
   try {
+    // Only filter by userId — sort client-side to avoid composite index requirement
     const q = query(
       collection(db, WAITLIST_COLLECTION),
-      where('userId', '==', userId),
-      orderBy('date', 'asc')
+      where('userId', '==', userId)
     );
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
-      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as WaitlistEntry
-    );
+    return snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as WaitlistEntry)
+      .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
   } catch (error) {
     console.error('Error getting user waitlist entries:', error);
     throw error;
@@ -106,22 +109,23 @@ export async function notifyWaitlistedVendors(
   endTime: string
 ): Promise<WaitlistEntry[]> {
   try {
+    // Only filter by date — filter status client-side to avoid composite index
     const q = query(
       collection(db, WAITLIST_COLLECTION),
-      where('date', '==', date),
-      where('status', '==', 'waiting')
+      where('date', '==', date)
     );
     const snapshot = await getDocs(q);
 
     const now = Timestamp.now();
 
-    // Filter for entries whose preferred time overlaps the available window
+    // Filter for entries that are waiting and whose preferred time overlaps
     const matchingEntries = snapshot.docs
       .map(
         (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as WaitlistEntry
       )
       .filter(
         (entry) =>
+          entry.status === 'waiting' &&
           entry.preferredStartTime < endTime &&
           entry.preferredEndTime > startTime
       );

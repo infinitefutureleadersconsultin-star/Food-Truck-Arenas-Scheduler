@@ -39,20 +39,24 @@ export function useBookings(options?: UseBookingsOptions) {
     setError(null);
 
     try {
+      // Use at most one where() to avoid composite index requirement.
+      // Filter the rest client-side.
       const constraints: QueryConstraint[] = [];
 
       if (options?.userId) {
         constraints.push(where('userId', '==', options.userId));
       }
+
+      let results = await getDocuments<Booking>('bookings', ...constraints);
+
+      // Client-side filters
       if (options?.date) {
-        constraints.push(where('date', '==', options.date));
+        results = results.filter((b) => b.date === options.date);
       }
       if (options?.status) {
-        constraints.push(where('status', '==', options.status));
+        results = results.filter((b) => b.status === options.status);
       }
 
-      // No orderBy — sort client-side to avoid composite index requirement
-      const results = await getDocuments<Booking>('bookings', ...constraints);
       results.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
       setBookings(results);
     } catch (err) {

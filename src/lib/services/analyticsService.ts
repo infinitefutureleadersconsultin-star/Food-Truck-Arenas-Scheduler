@@ -3,7 +3,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { Booking, AttendanceLog, ResourceType } from '@/lib/types';
@@ -42,15 +41,19 @@ export interface TableUsageData {
 }
 
 async function getBookingsInRange(range: DateRange): Promise<Booking[]> {
+  // Only use range filters on a single field — filter status client-side
+  // to avoid composite index requirement
   const q = query(
     collection(db, 'bookings'),
     where('date', '>=', range.startDate),
-    where('date', '<=', range.endDate),
-    where('status', 'in', ['confirmed', 'checked_in', 'completed']),
-    orderBy('date', 'asc')
+    where('date', '<=', range.endDate)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Booking));
+  const activeStatuses = new Set(['confirmed', 'checked_in', 'completed']);
+  return snapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() } as Booking))
+    .filter((b) => activeStatuses.has(b.status))
+    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
 }
 
 export async function getResourceUtilization(range: DateRange): Promise<UtilizationData[]> {

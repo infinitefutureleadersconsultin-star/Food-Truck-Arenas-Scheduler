@@ -77,15 +77,16 @@ export async function markNotificationRead(id: string): Promise<void> {
 
 export async function markAllRead(userId: string): Promise<void> {
   try {
+    // Only filter by userId — check read status client-side to avoid composite index
     const q = query(
       collection(db, COLLECTION),
-      where('userId', '==', userId),
-      where('read', '==', false)
+      where('userId', '==', userId)
     );
     const snapshot = await getDocs(q);
-    if (snapshot.empty) return;
+    const unread = snapshot.docs.filter((d) => d.data().read === false);
+    if (unread.length === 0) return;
     const batch = writeBatch(db);
-    snapshot.docs.forEach((d) => {
+    unread.forEach((d) => {
       batch.update(d.ref, { read: true });
     });
     await batch.commit();
@@ -97,13 +98,13 @@ export async function markAllRead(userId: string): Promise<void> {
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
   try {
+    // Only filter by userId — count unread client-side to avoid composite index
     const q = query(
       collection(db, COLLECTION),
-      where('userId', '==', userId),
-      where('read', '==', false)
+      where('userId', '==', userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.size;
+    return snapshot.docs.filter((d) => d.data().read === false).length;
   } catch (error) {
     console.error('Error getting unread notification count:', error);
     throw error;

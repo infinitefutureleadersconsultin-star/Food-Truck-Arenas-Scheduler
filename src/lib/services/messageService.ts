@@ -76,13 +76,13 @@ export async function markMessageRead(id: string): Promise<void> {
 
 export async function getUnreadCount(userId: string): Promise<number> {
   try {
+    // Only filter by receiverId — count unread client-side to avoid composite index requirement
     const q = query(
       collection(db, COLLECTION),
-      where('receiverId', '==', userId),
-      where('isRead', '==', false)
+      where('receiverId', '==', userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.size;
+    return snapshot.docs.filter((d) => d.data().isRead === false).length;
   } catch (error) {
     console.error('Error getting unread count:', error);
     throw error;

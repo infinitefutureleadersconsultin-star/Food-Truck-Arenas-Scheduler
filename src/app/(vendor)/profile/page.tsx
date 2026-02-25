@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   User as UserIcon,
   Users,
@@ -150,7 +150,7 @@ export default function ProfilePage() {
 
         {/* Account Settings Tab */}
         <TabsContent value="settings">
-          <AccountSettingsTab />
+          <AccountSettingsTab user={user} onSave={updateProfile} />
         </TabsContent>
       </Tabs>
     </div>
@@ -167,10 +167,10 @@ interface BusinessInfoTabProps {
 }
 
 function BusinessInfoTab({ user, onSave }: BusinessInfoTabProps) {
-  const [businessName, setBusinessName] = useState(user.businessName);
-  const [displayName, setDisplayName] = useState(user.displayName);
-  const [phone, setPhone] = useState(user.phone);
-  const [email, setEmail] = useState(user.email);
+  const [businessName, setBusinessName] = useState(user.businessName ?? '');
+  const [displayName, setDisplayName] = useState(user.displayName ?? '');
+  const [phone, setPhone] = useState(user.phone ?? '');
+  const [email, setEmail] = useState(user.email ?? '');
   const [vehicleSize, setVehicleSize] = useState<VehicleSize>(user.vehicleSize);
   const [defaultTables, setDefaultTables] = useState(user.defaultResources?.tables ?? 0);
   const [defaultFridges, setDefaultFridges] = useState(user.defaultResources?.fridges ?? 0);
@@ -579,15 +579,94 @@ function DocumentsTab({ documents }: DocumentsTabProps) {
 // Account Settings Tab
 // ---------------------------------------------------------------------------
 
-function AccountSettingsTab() {
+interface AccountSettingsTabProps {
+  user: User;
+  onSave: (data: Partial<Omit<User, 'id' | 'createdAt'>>) => Promise<void>;
+}
+
+function AccountSettingsTab({ user, onSave }: AccountSettingsTabProps) {
+  const { user: firebaseUser } = useAuthContext();
+
+  // Password change
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [smsNotifications, setSmsNotifications] = useState(false);
-  const [bookingReminders, setBookingReminders] = useState(true);
-  const [announcementAlerts, setAnnouncementAlerts] = useState(true);
+  const [passwordUpdating, setPasswordUpdating] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Notification preferences — initialize from user profile
+  const prefs = (user as unknown as Record<string, unknown>).notificationPreferences as
+    | { email?: boolean; sms?: boolean; bookingReminders?: boolean; announcementAlerts?: boolean }
+    | undefined;
+  const [emailNotifications, setEmailNotifications] = useState(prefs?.email ?? true);
+  const [smsNotifications, setSmsNotifications] = useState(prefs?.sms ?? false);
+  const [bookingReminders, setBookingReminders] = useState(prefs?.bookingReminders ?? true);
+  const [announcementAlerts, setAnnouncementAlerts] = useState(prefs?.announcementAlerts ?? true);
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [notifSaved, setNotifSaved] = useState(false);
+
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  // Save notification preferences to Firestore
+  const saveNotifPrefs = async (
+    email: boolean,
+    sms: boolean,
+    reminders: boolean,
+    alerts: boolean,
+  ) => {
+    setNotifSaving(true);
+    setNotifSaved(false);
+    try {
+      await onSave({
+        notificationPreferences: {
+          email,
+          sms,
+          bookingReminders: reminders,
+          announcementAlerts: alerts,
+        },
+      } as Partial<Omit<User, 'id' | 'createdAt'>>);
+      setNotifSaved(true);
+      setTimeout(() => setNotifSaved(false), 3000);
+    } catch {
+      // handled by hook
+    } finally {
+      setNotifSaving(false);
+    }
+  };
+
+  // Persist each toggle change immediately
+  const handleToggle = (
+    setter: React.Dispatch<React.SetStateAction<boolean>>,
+    field: 'email' | 'sms' | 'bookingReminders' | 'announcementAlerts',
+    value: boolean,
+  ) => {
+    setter(value);
+    const next = { email: emailNotifications, sms: smsNotifications, bookingReminders, announcementAlerts, [field]: value };
+    saveNotifPrefs(next.email, next.sms, next.bookingReminders, next.announcementAlerts);
+  };
+
+  // Password change handler
+  const handlePasswordChange = async () => {
+    if (!firebaseUser || !firebaseUser.email) return;
+    setPasswordUpdating(true);
+    setPasswordMessage(null);
+
+    try {
+      const { EmailAuthProvider, reauthenticateWithCredential, updatePassword } = await import('firebase/auth');
+      const credential = EmailAuthProvider.credential(firebaseUser.email, currentPassword);
+      await reauthenticateWithCredential(firebaseUser, credential);
+      await updatePassword(firebaseUser, newPassword);
+      setPasswordMessage({ type: 'success', text: 'Password updated successfully.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update password.';
+      setPasswordMessage({ type: 'error', text: message });
+    } finally {
+      setPasswordUpdating(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -629,10 +708,16 @@ function AccountSettingsTab() {
               />
             </div>
           </div>
+          {passwordMessage && (
+            <p className={cn('text-sm', passwordMessage.type === 'success' ? 'text-green-600' : 'text-red-600')}>
+              {passwordMessage.text}
+            </p>
+          )}
           <Button
-            disabled={!currentPassword || !newPassword || newPassword !== confirmPassword}
+            disabled={!currentPassword || !newPassword || newPassword !== confirmPassword || passwordUpdating}
+            onClick={handlePasswordChange}
           >
-            Update Password
+            {passwordUpdating ? 'Updating...' : 'Update Password'}
           </Button>
         </CardContent>
       </Card>
@@ -651,7 +736,7 @@ function AccountSettingsTab() {
               <p className="text-sm font-medium text-gray-900">Email Notifications</p>
               <p className="text-xs text-gray-500">Receive updates via email</p>
             </div>
-            <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
+            <Switch checked={emailNotifications} onCheckedChange={(v) => handleToggle(setEmailNotifications, 'email', v)} />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -659,7 +744,7 @@ function AccountSettingsTab() {
               <p className="text-sm font-medium text-gray-900">SMS Notifications</p>
               <p className="text-xs text-gray-500">Receive text message alerts</p>
             </div>
-            <Switch checked={smsNotifications} onCheckedChange={setSmsNotifications} />
+            <Switch checked={smsNotifications} onCheckedChange={(v) => handleToggle(setSmsNotifications, 'sms', v)} />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -667,7 +752,7 @@ function AccountSettingsTab() {
               <p className="text-sm font-medium text-gray-900">Booking Reminders</p>
               <p className="text-xs text-gray-500">Remind before scheduled bookings</p>
             </div>
-            <Switch checked={bookingReminders} onCheckedChange={setBookingReminders} />
+            <Switch checked={bookingReminders} onCheckedChange={(v) => handleToggle(setBookingReminders, 'bookingReminders', v)} />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -675,8 +760,11 @@ function AccountSettingsTab() {
               <p className="text-sm font-medium text-gray-900">Announcement Alerts</p>
               <p className="text-xs text-gray-500">Notify for new announcements</p>
             </div>
-            <Switch checked={announcementAlerts} onCheckedChange={setAnnouncementAlerts} />
+            <Switch checked={announcementAlerts} onCheckedChange={(v) => handleToggle(setAnnouncementAlerts, 'announcementAlerts', v)} />
           </div>
+          {notifSaved && (
+            <p className="text-sm text-green-600">Preferences saved.</p>
+          )}
         </CardContent>
       </Card>
 

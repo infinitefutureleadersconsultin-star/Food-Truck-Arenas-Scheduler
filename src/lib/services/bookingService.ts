@@ -47,18 +47,18 @@ export async function createBooking(
 
         const resourceType = typeSnap.data();
 
-        // Query existing bookings for this resource type on the same date
-        // that overlap with the requested time
+        // Query bookings by date only — filter status client-side to avoid composite index
         const existingBookingsQuery = query(
           collection(db, BOOKINGS_COLLECTION),
-          where('date', '==', bookingData.date),
-          where('status', 'in', ['pending', 'confirmed', 'checked_in'])
+          where('date', '==', bookingData.date)
         );
         const existingBookingsSnap = await getDocs(existingBookingsQuery);
+        const activeStatuses = new Set(['pending', 'confirmed', 'checked_in']);
 
         let bookedCount = 0;
         existingBookingsSnap.forEach((docSnap) => {
           const existing = docSnap.data();
+          if (!activeStatuses.has(existing.status)) return;
           // Check time overlap
           if (
             existing.startTime < bookingData.endTime &&
@@ -198,22 +198,25 @@ export async function getBookingsByUser(
   }
 ): Promise<Booking[]> {
   try {
-    const constraints: QueryConstraint[] = [
-      where('userId', '==', userId),
-    ];
-
-    if (options?.status && options.status.length > 0) {
-      constraints.push(where('status', 'in', options.status));
-    }
-
-    const q = query(collection(db, BOOKINGS_COLLECTION), ...constraints);
+    // Only filter by userId — filter status & date range client-side
+    // to avoid composite index requirement
+    const q = query(
+      collection(db, BOOKINGS_COLLECTION),
+      where('userId', '==', userId)
+    );
     const snapshot = await getDocs(q);
 
     let bookings = snapshot.docs.map(
       (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Booking
     );
 
-    // Filter by date range client-side (Firestore limits compound queries)
+    // Filter by status client-side
+    if (options?.status && options.status.length > 0) {
+      const statusSet = new Set(options.status);
+      bookings = bookings.filter((b) => statusSet.has(b.status));
+    }
+
+    // Filter by date range client-side
     if (options?.dateRange) {
       bookings = bookings.filter(
         (b) =>
@@ -222,7 +225,7 @@ export async function getBookingsByUser(
       );
     }
 
-    // Sort client-side to avoid requiring a composite index
+    // Sort client-side
     bookings.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 
     return bookings;
@@ -240,22 +243,24 @@ export async function getBookingsByDate(
   status?: BookingStatus[]
 ): Promise<Booking[]> {
   try {
-    const constraints: QueryConstraint[] = [
-      where('date', '==', date),
-    ];
-
-    if (status && status.length > 0) {
-      constraints.push(where('status', 'in', status));
-    }
-
-    const q = query(collection(db, BOOKINGS_COLLECTION), ...constraints);
+    // Only filter by date — filter status client-side to avoid composite index requirement
+    const q = query(
+      collection(db, BOOKINGS_COLLECTION),
+      where('date', '==', date)
+    );
     const snapshot = await getDocs(q);
 
-    const bookings = snapshot.docs.map(
+    let bookings = snapshot.docs.map(
       (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Booking
     );
 
-    // Sort client-side to avoid requiring a composite index
+    // Filter by status client-side
+    if (status && status.length > 0) {
+      const statusSet = new Set(status);
+      bookings = bookings.filter((b) => statusSet.has(b.status));
+    }
+
+    // Sort client-side
     bookings.sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
 
     return bookings;
@@ -343,19 +348,20 @@ export async function getBookingsForResource(
   date: string
 ): Promise<Booking[]> {
   try {
+    // Only filter by date — filter status and resource client-side
     const q = query(
       collection(db, BOOKINGS_COLLECTION),
-      where('date', '==', date),
-      where('status', 'in', ['pending', 'confirmed', 'checked_in'])
+      where('date', '==', date)
     );
     const snapshot = await getDocs(q);
+    const activeStatuses = new Set(['pending', 'confirmed', 'checked_in']);
 
-    // Filter client-side for bookings containing the specific resource
     return snapshot.docs
       .map(
         (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Booking
       )
       .filter((booking) =>
+        activeStatuses.has(booking.status) &&
         booking.resources.some((r) => r.resourceId === resourceId)
       );
   } catch (error) {

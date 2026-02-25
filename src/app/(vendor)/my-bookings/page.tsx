@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserBookings } from '@/lib/hooks/useBookings';
-import { cancelBooking } from '@/lib/services/bookingService';
+import { cancelBooking, updateBooking } from '@/lib/services/bookingService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -394,45 +394,16 @@ export default function MyBookingsPage() {
         </Dialog>
       )}
 
-      {/* Edit Dialog (Placeholder) */}
+      {/* Edit Dialog */}
       {editTarget && (
-        <Dialog open onOpenChange={() => setEditTarget(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Booking</DialogTitle>
-              <DialogDescription>
-                Editing booking for {formatDate(editTarget.date, 'MMM d, yyyy')} at{' '}
-                {formatTime(editTarget.startTime)} - {formatTime(editTarget.endTime)}.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <Label>Date</Label>
-                <Input type="date" defaultValue={editTarget.date} className="mt-1" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Start Time</Label>
-                  <Input type="time" defaultValue={editTarget.startTime} className="mt-1" />
-                </div>
-                <div>
-                  <Label>End Time</Label>
-                  <Input type="time" defaultValue={editTarget.endTime} className="mt-1" />
-                </div>
-              </div>
-              <div>
-                <Label>Notes</Label>
-                <Textarea defaultValue={editTarget.notes} className="mt-1" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditTarget(null)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setEditTarget(null)}>Save Changes</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <EditBookingDialog
+          booking={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => {
+            setEditTarget(null);
+            refetch();
+          }}
+        />
       )}
     </div>
   );
@@ -509,5 +480,106 @@ function BookingCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Edit Booking Dialog
+// ---------------------------------------------------------------------------
+
+interface EditBookingDialogProps {
+  booking: Booking;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function EditBookingDialog({ booking, onClose, onSaved }: EditBookingDialogProps) {
+  const [editDate, setEditDate] = useState(booking.date);
+  const [editStart, setEditStart] = useState(booking.startTime);
+  const [editEnd, setEditEnd] = useState(booking.endTime);
+  const [editNotes, setEditNotes] = useState(booking.notes ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateBooking(booking.id, {
+        date: editDate,
+        startTime: editStart,
+        endTime: editEnd,
+        notes: editNotes,
+      });
+      onSaved();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to update booking.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Booking</DialogTitle>
+          <DialogDescription>
+            Editing booking for {formatDate(booking.date, 'MMM d, yyyy')} at{' '}
+            {formatTime(booking.startTime)} - {formatTime(booking.endTime)}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Date</Label>
+            <Input
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Start Time</Label>
+              <Input
+                type="time"
+                value={editStart}
+                onChange={(e) => setEditStart(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>End Time</Label>
+              <Input
+                type="time"
+                value={editEnd}
+                onChange={(e) => setEditEnd(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Textarea
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          {saveError && (
+            <p className="text-sm text-red-600">{saveError}</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
