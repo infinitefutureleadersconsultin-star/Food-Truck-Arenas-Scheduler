@@ -78,12 +78,17 @@ export async function createBooking(
 
         // If resources are tracked individually, allocate specific ones
         if (resourceType.trackIndividually) {
+          // Only filter by typeId — filter status client-side to avoid composite index
           const resourcesQuery = query(
             collection(db, RESOURCES_COLLECTION),
-            where('typeId', '==', resourceTypeId),
-            where('status', '==', 'available')
+            where('typeId', '==', resourceTypeId)
           );
           const resourcesSnap = await getDocs(resourcesQuery);
+          // Filter to available resources client-side
+          const availableResourceDocs = resourcesSnap.docs.filter(
+            (d) => d.data().status === 'available'
+          );
+          const resourcesSnapFiltered = { docs: availableResourceDocs };
 
           // Find resources not booked during this time
           const bookedResourceIds = new Set<string>();
@@ -103,7 +108,7 @@ export async function createBooking(
             }
           });
 
-          const availableResources = resourcesSnap.docs.filter(
+          const availableResources = resourcesSnapFiltered.docs.filter(
             (d) => !bookedResourceIds.has(d.id)
           );
 

@@ -8,9 +8,7 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   Timestamp,
-  QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import type { User, UserStatus } from '@/lib/types';
@@ -81,21 +79,21 @@ export async function updateUser(
  */
 export async function getAllVendors(status?: UserStatus): Promise<User[]> {
   try {
-    // Only use where() filters — sort client-side to avoid composite index requirement
-    const constraints: QueryConstraint[] = [
-      where('role', '==', 'vendor'),
-    ];
-
-    if (status) {
-      constraints.push(where('status', '==', status));
-    }
-
-    const q = query(collection(db, USERS_COLLECTION), ...constraints);
+    // Only filter by role — filter status client-side to avoid composite index requirement
+    const q = query(
+      collection(db, USERS_COLLECTION),
+      where('role', '==', 'vendor')
+    );
     const snapshot = await getDocs(q);
 
-    const vendors = snapshot.docs.map(
+    let vendors = snapshot.docs.map(
       (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as User
     );
+
+    // Filter by status client-side
+    if (status) {
+      vendors = vendors.filter((v) => v.status === status);
+    }
 
     // Sort client-side
     vendors.sort((a, b) => (a.businessName ?? '').localeCompare(b.businessName ?? ''));

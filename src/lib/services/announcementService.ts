@@ -6,11 +6,8 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
-  orderBy,
   Timestamp,
   arrayUnion,
-  QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import type { Announcement, AnnouncementType } from '@/lib/types';
@@ -50,22 +47,19 @@ export async function getAnnouncements(
   }
 ): Promise<Announcement[]> {
   try {
-    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
-
-    if (options?.type) {
-      constraints.push(where('type', '==', options.type));
-    }
-
-    const q = query(
-      collection(db, ANNOUNCEMENTS_COLLECTION),
-      ...constraints
-    );
+    // Avoid orderBy + where compound queries — sort and filter client-side
+    const q = query(collection(db, ANNOUNCEMENTS_COLLECTION));
     const snapshot = await getDocs(q);
 
     let announcements = snapshot.docs.map(
       (docSnap) =>
         ({ id: docSnap.id, ...docSnap.data() }) as Announcement
     );
+
+    // Filter by type client-side
+    if (options?.type) {
+      announcements = announcements.filter((a) => a.type === options.type);
+    }
 
     // Filter by active status client-side (requires comparing with current time)
     if (options?.active) {
@@ -74,6 +68,13 @@ export async function getAnnouncements(
         (a) => a.expiresAt === null || a.expiresAt > now
       );
     }
+
+    // Sort newest first client-side
+    announcements.sort((a, b) => {
+      const aTime = a.createdAt?.toMillis?.() ?? 0;
+      const bTime = b.createdAt?.toMillis?.() ?? 0;
+      return bTime - aTime;
+    });
 
     return announcements;
   } catch (error) {
@@ -87,10 +88,8 @@ export async function getAnnouncements(
  */
 export async function getActiveAnnouncements(): Promise<Announcement[]> {
   try {
-    const q = query(
-      collection(db, ANNOUNCEMENTS_COLLECTION),
-      orderBy('createdAt', 'desc')
-    );
+    // No orderBy — sort client-side to avoid index requirement
+    const q = query(collection(db, ANNOUNCEMENTS_COLLECTION));
     const snapshot = await getDocs(q);
 
     const now = Timestamp.now();
@@ -100,7 +99,12 @@ export async function getActiveAnnouncements(): Promise<Announcement[]> {
         (docSnap) =>
           ({ id: docSnap.id, ...docSnap.data() }) as Announcement
       )
-      .filter((a) => a.expiresAt === null || a.expiresAt > now);
+      .filter((a) => a.expiresAt === null || a.expiresAt > now)
+      .sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? 0;
+        const bTime = b.createdAt?.toMillis?.() ?? 0;
+        return bTime - aTime;
+      });
   } catch (error) {
     console.error('Error getting active announcements:', error);
     throw error;

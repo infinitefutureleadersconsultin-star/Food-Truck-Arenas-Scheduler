@@ -220,30 +220,30 @@ export async function getAvailableResources(
   endTime: string
 ): Promise<Resource[]> {
   try {
-    // Get all resources of this type that are available
+    // Get all resources of this type — filter status client-side to avoid composite index
     const resourcesQuery = query(
       collection(db, RESOURCES_COLLECTION),
-      where('typeId', '==', typeId),
-      where('status', '==', 'available')
+      where('typeId', '==', typeId)
     );
     const resourcesSnap = await getDocs(resourcesQuery);
 
-    const allResources = resourcesSnap.docs.map(
-      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Resource
-    );
+    const allResources = resourcesSnap.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as Resource)
+      .filter((r) => r.status === 'available');
 
-    // Get active bookings for the given date
+    // Get bookings for the given date — filter status client-side to avoid composite index
     const bookingsQuery = query(
       collection(db, BOOKINGS_COLLECTION),
-      where('date', '==', date),
-      where('status', 'in', ['pending', 'confirmed', 'checked_in'])
+      where('date', '==', date)
     );
     const bookingsSnap = await getDocs(bookingsQuery);
+    const activeStatuses = new Set(['pending', 'confirmed', 'checked_in']);
 
     // Collect IDs of resources that are booked during the time window
     const bookedResourceIds = new Set<string>();
     bookingsSnap.forEach((docSnap) => {
       const booking = docSnap.data();
+      if (!activeStatuses.has(booking.status)) return;
       // Check for time overlap
       if (booking.startTime < endTime && booking.endTime > startTime) {
         (booking.resources || []).forEach((r: BookingResource) => {
@@ -343,13 +343,16 @@ export async function removeResourcesFromType(
 
     const resourceType = typeSnap.data() as ResourceType;
 
-    // Get available (unbooked) resources for this type
+    // Get resources for this type — filter status client-side to avoid composite index
     const availableQuery = query(
       collection(db, RESOURCES_COLLECTION),
-      where('typeId', '==', typeId),
-      where('status', '==', 'available')
+      where('typeId', '==', typeId)
     );
-    const availableSnap = await getDocs(availableQuery);
+    const allSnap = await getDocs(availableQuery);
+    const availableDocs = allSnap.docs.filter(
+      (d) => d.data().status === 'available'
+    );
+    const availableSnap = { size: availableDocs.length, docs: availableDocs };
 
     if (availableSnap.size < count) {
       throw new Error(

@@ -7,7 +7,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   Timestamp,
   runTransaction,
 } from 'firebase/firestore';
@@ -162,16 +161,20 @@ export async function getCheckInsForBooking(
   bookingId: string
 ): Promise<CheckIn[]> {
   try {
+    // Only filter by bookingId — sort client-side to avoid composite index
     const q = query(
       collection(db, CHECKINS_COLLECTION),
-      where('bookingId', '==', bookingId),
-      orderBy('timestamp', 'asc')
+      where('bookingId', '==', bookingId)
     );
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(
-      (docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as CheckIn
-    );
+    return snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }) as CheckIn)
+      .sort((a, b) => {
+        const aTime = a.timestamp?.toMillis?.() ?? 0;
+        const bTime = b.timestamp?.toMillis?.() ?? 0;
+        return aTime - bTime;
+      });
   } catch (error) {
     console.error('Error getting check-ins for booking:', error);
     throw error;
