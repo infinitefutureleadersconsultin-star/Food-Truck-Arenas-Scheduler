@@ -16,7 +16,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated();
+      // Users can only create their own document (UID must match)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
@@ -50,15 +51,18 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if isAuthenticated();
       allow create, delete: if isAdmin();
-      // Allow authenticated users to update (for marking as read via readBy array)
-      allow update: if isAuthenticated();
+      // Allow authenticated users to update only the readBy array field
+      allow update: if isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
     }
 
     match /messages/{messageId} {
       allow read: if isAuthenticated() &&
         (resource.data.senderId == request.auth.uid ||
          resource.data.receiverId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated();
+      // Sender ID must match the authenticated user (prevents impersonation)
+      allow create: if isAuthenticated() &&
+        request.resource.data.senderId == request.auth.uid;
       // Allow receiver to mark messages as read
       allow update: if isAuthenticated() &&
         (resource.data.receiverId == request.auth.uid || isAdmin());
@@ -96,7 +100,8 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() &&
         (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated();
+      // Only admin or system (Cloud Functions) can create notifications
+      allow create: if isAdmin();
       allow update: if resource.data.userId == request.auth.uid || isAdmin();
     }
   }

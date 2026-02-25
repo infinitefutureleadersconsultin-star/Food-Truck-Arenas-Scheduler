@@ -55,7 +55,7 @@ export const detectNoShows = functions.pubsub
         const bookingData = doc.data();
 
         // Skip bookings that already have a check-in recorded
-        if (bookingData.checkedInAt) {
+        if (bookingData.checkedInAt || bookingData.checkInTime) {
           continue;
         }
 
@@ -70,24 +70,24 @@ export const detectNoShows = functions.pubsub
         const logRef = db.collection("attendanceLogs").doc();
         batch.set(logRef, {
           bookingId: doc.id,
-          vendorId: bookingData.vendorId,
-          vendorName: bookingData.vendorName || null,
-          bayId: bookingData.bayId,
+          userId: bookingData.userId,
+          userName: bookingData.userName || null,
+          businessName: bookingData.businessName || null,
           date: bookingData.date,
           startTime: bookingData.startTime,
           endTime: bookingData.endTime,
-          type: "no_show",
+          status: "no_show",
           detectedBy: "scheduled_function",
           createdAt: nowTimestamp,
         });
 
         // Track no-show counts per vendor
-        const vendorId = bookingData.vendorId as string;
-        vendorNoShowCounts[vendorId] =
-          (vendorNoShowCounts[vendorId] || 0) + 1;
+        const userId = bookingData.userId as string;
+        vendorNoShowCounts[userId] =
+          (vendorNoShowCounts[userId] || 0) + 1;
 
         functions.logger.info(
-          `Booking ${doc.id} marked as no_show for vendor ${vendorId}`
+          `Booking ${doc.id} marked as no_show for user ${userId}`
         );
       }
 
@@ -115,8 +115,8 @@ async function checkVendorNoShowHistory(
 ): Promise<void> {
   const noShowLogsQuery = await db
     .collection("attendanceLogs")
-    .where("vendorId", "==", vendorId)
-    .where("type", "==", "no_show")
+    .where("userId", "==", vendorId)
+    .where("status", "==", "no_show")
     .get();
 
   const totalNoShows = noShowLogsQuery.size;

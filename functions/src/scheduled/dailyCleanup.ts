@@ -64,7 +64,7 @@ async function markCompletedBookings(
     const bookingData = doc.data();
 
     // Only mark as completed if the vendor actually checked in
-    if (bookingData.checkedInAt) {
+    if (bookingData.checkedInAt || bookingData.checkInTime) {
       batch.update(doc.ref, {
         status: "completed",
         completedAt: serverNow,
