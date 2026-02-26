@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { BlackoutDateManager } from '@/components/admin/BlackoutDateManager';
+import { NotificationPreferencesPanel } from '@/components/shared/PushNotificationToggle';
 import { useSettings } from '@/lib/hooks/useSettings';
 import { addBlackoutDate, removeBlackoutDate } from '@/lib/services/settingsService';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -265,6 +266,18 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Separator />
+
+      {/* Push Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Push Notifications</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NotificationPreferencesPanel />
+        </CardContent>
+      </Card>
 
       <Separator />
 

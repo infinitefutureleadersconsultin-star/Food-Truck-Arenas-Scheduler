@@ -5,11 +5,14 @@ export type {
   VehicleSize,
   DocumentType,
   DocumentStatus,
+  TeamMemberRole,
+  TeamPermission,
   TeamMember,
   UserDocument,
   DefaultResources,
   User,
 } from './user';
+export { ROLE_DEFAULT_PERMISSIONS } from './user';
 
 // Resource types
 export type {
@@ -55,4 +58,12 @@ export type {
   Message,
   IssueReport,
   AttendanceLog,
+  FeedbackCategory,
+  FeedbackStatus,
+  Feedback,
+  FeatureStatus,
+  PlatformFeature,
+  ConfirmationStatus,
+  CheckInConfirmation,
+  NotificationPreferences,
 } from './settings';

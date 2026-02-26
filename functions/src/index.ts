@@ -15,6 +15,10 @@ export { releaseStaleBookings } from "./bookings/releaseStaleBookings";
 export { detectNoShows } from "./scheduled/detectNoShows";
 export { checkDocumentExpiry } from "./scheduled/checkDocumentExpiry";
 export { dailyCleanup } from "./scheduled/dailyCleanup";
+export {
+  generateCheckInConfirmations,
+  processUnconfirmedBookings,
+} from "./scheduled/generateCheckInConfirmations";
 
 // Admin callable functions
 export { updateUserStatus } from "./admin/updateUserStatus";

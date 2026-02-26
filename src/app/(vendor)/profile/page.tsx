@@ -43,6 +43,7 @@ import {
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { PushNotificationToggle } from '@/components/shared/PushNotificationToggle';
 import { cn } from '@/lib/utils/cn';
 import type {
   User,
@@ -341,7 +342,20 @@ function TeamMembersTab({ members: initialMembers, onSave }: TeamMembersTabProps
   const [saved, setSaved] = useState(false);
 
   const addMember = () => {
-    setMembers((prev) => [...prev, { name: '', email: '', phone: '' }]);
+    setMembers((prev) => [
+      ...prev,
+      {
+        id: `tm-${Date.now()}`,
+        name: '',
+        email: '',
+        phone: '',
+        role: 'staff' as const,
+        permissions: ['view_bookings', 'view_calendar', 'check_in', 'view_messages', 'send_messages'],
+        isActive: true,
+        invitedAt: null as any,
+        joinedAt: null,
+      },
+    ]);
   };
 
   const removeMember = (index: number) => {
@@ -719,6 +733,19 @@ function AccountSettingsTab({ user, onSave }: AccountSettingsTabProps) {
           >
             {passwordUpdating ? 'Updating...' : 'Update Password'}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Push Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Push Notifications
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PushNotificationToggle />
         </CardContent>
       </Card>
 
