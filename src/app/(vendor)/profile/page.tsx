@@ -342,7 +342,20 @@ function TeamMembersTab({ members: initialMembers, onSave }: TeamMembersTabProps
   const [saved, setSaved] = useState(false);
 
   const addMember = () => {
-    setMembers((prev) => [...prev, { name: '', email: '', phone: '' }]);
+    setMembers((prev) => [
+      ...prev,
+      {
+        id: `tm-${Date.now()}`,
+        name: '',
+        email: '',
+        phone: '',
+        role: 'staff' as const,
+        permissions: ['view_bookings', 'view_calendar', 'check_in', 'view_messages', 'send_messages'],
+        isActive: true,
+        invitedAt: null as any,
+        joinedAt: null,
+      },
+    ]);
   };
 
   const removeMember = (index: number) => {
