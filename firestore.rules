@@ -104,5 +104,29 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if resource.data.userId == request.auth.uid || isAdmin();
     }
+
+    // Feedback collection — customers can submit, admin can manage
+    match /feedback/{feedbackId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Platform features — admin manages, authenticated users can view
+    match /platformFeatures/{featureId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Check-in confirmations — vendors confirm their own, admin can view/manage all
+    match /checkInConfirmations/{confirmationId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
   }
 }

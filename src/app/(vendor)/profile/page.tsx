@@ -43,6 +43,7 @@ import {
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { PushNotificationToggle } from '@/components/shared/PushNotificationToggle';
 import { cn } from '@/lib/utils/cn';
 import type {
   User,
@@ -634,6 +635,19 @@ function AccountSettingsTab() {
           >
             Update Password
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Push Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Push Notifications
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PushNotificationToggle />
         </CardContent>
       </Card>
 

@@ -18,14 +18,23 @@ import {
   Menu,
   X,
   Shield,
+  MessageCircle,
+  Puzzle,
+  UserPlus,
+  ClipboardCheck,
 } from 'lucide-react';
+import { FeedbackBubble } from '@/components/shared/FeedbackBubble';
 
 const adminNavItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
   { href: '/admin/vendors', label: 'Vendors', icon: Users },
   { href: '/admin/resources', label: 'Resources', icon: Building2 },
+  { href: '/admin/check-in-confirmations', label: 'Confirmations', icon: ClipboardCheck },
+  { href: '/admin/team', label: 'Team', icon: UserPlus },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/admin/feedback', label: 'Feedback', icon: MessageCircle },
+  { href: '/admin/platform-features', label: 'Features', icon: Puzzle },
   { href: '/admin/communications', label: 'Communications', icon: Bell },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
@@ -220,6 +229,9 @@ export default function AdminLayout({
         {/* Page content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
+
+      {/* Feedback Bubble */}
+      <FeedbackBubble />
     </div>
   );
 }

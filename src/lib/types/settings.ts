@@ -115,3 +115,78 @@ export interface AttendanceLog {
   lateMinutes: number;
   createdAt: Timestamp;
 }
+
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+export type FeedbackCategory = 'feature_suggestion' | 'issue_report' | 'improvement_idea';
+export type FeedbackStatus = 'new' | 'reviewed' | 'in_progress' | 'resolved' | 'dismissed';
+
+export interface Feedback {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  category: FeedbackCategory;
+  subject: string;
+  description: string;
+  status: FeedbackStatus;
+  adminResponse: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// Platform Features
+// ---------------------------------------------------------------------------
+
+export type FeatureStatus = 'planned' | 'in_development' | 'beta' | 'released' | 'deprecated';
+
+export interface PlatformFeature {
+  id: string;
+  name: string;
+  description: string;
+  status: FeatureStatus;
+  releaseDate: Timestamp | null;
+  isEnabled: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// Check-in Confirmation (9 AM day-of)
+// ---------------------------------------------------------------------------
+
+export type ConfirmationStatus = 'pending' | 'confirmed' | 'not_confirmed';
+
+export interface CheckInConfirmation {
+  id: string;
+  bookingId: string;
+  userId: string;
+  userName: string;
+  businessName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  assignedTeamMemberId: string | null;
+  assignedTeamMemberName: string | null;
+  confirmationStatus: ConfirmationStatus;
+  confirmedAt: Timestamp | null;
+  forwardedToTeamAt: Timestamp | null;
+  reminderSentAt: Timestamp | null;
+  createdAt: Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// Push Notification Preferences
+// ---------------------------------------------------------------------------
+
+export interface NotificationPreferences {
+  pushEnabled: boolean;
+  bookingConfirmations: boolean;
+  checkInReminders: boolean;
+  announcements: boolean;
+  messages: boolean;
+  teamUpdates: boolean;
+}

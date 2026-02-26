@@ -9,11 +9,22 @@ import {
   QrCode,
   CalendarX,
   Timer,
+  HandMetal,
+  AlertTriangle,
+  Send,
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBookings } from '@/lib/hooks/useBookings';
 import { updateBooking } from '@/lib/services/bookingService';
+import {
+  getUserConfirmations,
+  confirmAttendance,
+  createCheckInConfirmation,
+} from '@/lib/services/checkinConfirmationService';
+import {
+  sendCheckInReminderPush,
+} from '@/lib/services/pushNotificationService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +34,7 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils/cn';
 import { formatDate, formatTime, parseTime } from '@/lib/utils/dateUtils';
-import type { Booking, BookingStatus } from '@/lib/types';
+import type { Booking, BookingStatus, CheckInConfirmation } from '@/lib/types';
 
 // ---------------------------------------------------------------------------
 // useCheckin hook
@@ -108,7 +119,7 @@ function useCountdown(endTimeStr: string, dateStr: string) {
 }
 
 // ---------------------------------------------------------------------------
-// QR Code component (uses qrcode.react when available, falls back to placeholder)
+// QR Code component
 // ---------------------------------------------------------------------------
 
 function BookingQRCode({ bookingId }: { bookingId: string }) {
@@ -121,13 +132,10 @@ function BookingQRCode({ bookingId }: { bookingId: string }) {
   useEffect(() => {
     import('qrcode.react')
       .then((mod) => {
-        // qrcode.react exports QRCodeSVG and QRCodeCanvas
         const Comp = (mod as any).QRCodeSVG ?? (mod as any).QRCodeCanvas ?? (mod as any).default;
         if (Comp) setQRCodeComponent(() => Comp);
       })
-      .catch(() => {
-        // Not installed -- keep null
-      });
+      .catch(() => {});
   }, []);
 
   const qrValue = `commissary://check-in/${bookingId}`;
@@ -140,7 +148,6 @@ function BookingQRCode({ bookingId }: { bookingId: string }) {
     );
   }
 
-  // Fallback when qrcode.react is not installed
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-8 py-12">
       <QrCode className="mb-3 h-16 w-16 text-gray-300" />
@@ -153,16 +160,34 @@ function BookingQRCode({ bookingId }: { bookingId: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Check-In Page
+// Check-In Page with 9 AM Attendance Confirmation
 // ---------------------------------------------------------------------------
 
 export default function CheckInPage() {
-  const { user } = useAuthContext();
+  const { user, userData } = useAuthContext();
   const today = new Date().toISOString().split('T')[0];
 
   const { bookings, loading, error: fetchError, refetch } = useBookings(
     user ? { userId: user.uid, date: today } : undefined,
   );
+
+  // Confirmation state
+  const [confirmations, setConfirmations] = useState<CheckInConfirmation[]>([]);
+  const [confirmingAttendance, setConfirmingAttendance] = useState(false);
+  const [confirmationLoaded, setConfirmationLoaded] = useState(false);
+
+  // Load confirmations for today
+  useEffect(() => {
+    if (!user) return;
+    getUserConfirmations(user.uid, today)
+      .then((data) => {
+        setConfirmations(data);
+        setConfirmationLoaded(true);
+      })
+      .catch(() => {
+        setConfirmationLoaded(true);
+      });
+  }, [user, today]);
 
   // Find the most relevant booking for today
   const todaysBooking = useMemo(() => {
@@ -172,13 +197,31 @@ export default function CheckInPage() {
         b.status === 'checked_in' ||
         b.status === 'pending',
     );
-    // Prefer checked-in, then confirmed, then pending
     const checkedIn = active.find((b) => b.status === 'checked_in');
     if (checkedIn) return checkedIn;
     const confirmed = active.find((b) => b.status === 'confirmed');
     if (confirmed) return confirmed;
     return active[0] ?? null;
   }, [bookings]);
+
+  // Find confirmation record for current booking
+  const bookingConfirmation = useMemo(() => {
+    if (!todaysBooking) return null;
+    return confirmations.find((c) => c.bookingId === todaysBooking.id) ?? null;
+  }, [confirmations, todaysBooking]);
+
+  const isAttendanceConfirmed = bookingConfirmation?.confirmationStatus === 'confirmed';
+
+  // Determine if it's time for 9 AM confirmation (between 8:30 AM and booking start)
+  const needsConfirmation = useMemo(() => {
+    if (!todaysBooking || isAttendanceConfirmed) return false;
+    if (todaysBooking.status === 'checked_in') return false;
+    const now = new Date();
+    // Confirmation window: from 8:30 AM until booking start time
+    const confirmWindowStart = new Date();
+    confirmWindowStart.setHours(8, 30, 0, 0);
+    return now >= confirmWindowStart;
+  }, [todaysBooking, isAttendanceConfirmed]);
 
   const { checkIn, checkOut, checking, error: checkinError } = useCheckin(todaysBooking);
   const countdown = useCountdown(
@@ -193,12 +236,53 @@ export default function CheckInPage() {
     const { hours, minutes } = parseTime(todaysBooking.startTime);
     const bookingStart = new Date();
     bookingStart.setHours(hours, minutes, 0, 0);
-    // Allow check-in 30 minutes before start
     const windowStart = new Date(bookingStart.getTime() - 30 * 60 * 1000);
     return now >= windowStart;
   }, [todaysBooking]);
 
-  // Handle successful actions by refetching
+  // Handle attendance confirmation
+  const handleConfirmAttendance = useCallback(async () => {
+    if (!todaysBooking || !user || !userData) return;
+    setConfirmingAttendance(true);
+    try {
+      // Find or create the confirmation record
+      let confirmId = bookingConfirmation?.id;
+
+      if (!confirmId) {
+        // Create a new confirmation record
+        confirmId = await createCheckInConfirmation(
+          todaysBooking.id,
+          user.uid,
+          userData.displayName || 'Customer',
+          userData.businessName || '',
+          todaysBooking.date,
+          todaysBooking.startTime,
+          todaysBooking.endTime
+        );
+      }
+
+      // Find first available team member from admin's team (if any)
+      const teamMember = userData.teamMembers?.find((m) => m.isActive);
+
+      await confirmAttendance(
+        confirmId,
+        teamMember?.id,
+        teamMember?.name
+      );
+
+      // Refresh confirmations
+      const updated = await getUserConfirmations(user.uid, today);
+      setConfirmations(updated);
+
+      // Send push notification reminder for the actual check-in later
+      sendCheckInReminderPush(todaysBooking.date, todaysBooking.startTime);
+    } catch (err) {
+      console.error('Error confirming attendance:', err);
+    } finally {
+      setConfirmingAttendance(false);
+    }
+  }, [todaysBooking, user, userData, bookingConfirmation, today]);
+
   const handleCheckIn = useCallback(async () => {
     await checkIn();
     refetch();
@@ -209,7 +293,7 @@ export default function CheckInPage() {
     refetch();
   }, [checkOut, refetch]);
 
-  if (loading) {
+  if (loading || !confirmationLoaded) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -232,7 +316,6 @@ export default function CheckInPage() {
     );
   }
 
-  // No booking for today
   if (!todaysBooking) {
     return (
       <div className="p-4 md:p-6">
@@ -262,6 +345,61 @@ export default function CheckInPage() {
           {formatDate(todaysBooking.date, 'EEEE, MMMM d, yyyy')}
         </p>
       </div>
+
+      {/* 9 AM Attendance Confirmation Card */}
+      {needsConfirmation && !isCheckedIn && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="flex flex-col items-center gap-4 py-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
+              <HandMetal className="h-6 w-6 text-orange-600" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-orange-900">
+                Confirm Your Attendance
+              </h3>
+              <p className="mt-1 text-sm text-orange-700">
+                Please confirm you will attend your booking today at{' '}
+                <span className="font-semibold">
+                  {formatTime(todaysBooking.startTime)}
+                </span>
+                . This helps us prepare for your arrival and reduces no-shows.
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="h-14 w-full max-w-xs bg-orange-600 text-lg hover:bg-orange-700"
+              onClick={handleConfirmAttendance}
+              disabled={confirmingAttendance}
+            >
+              <CheckCircle2 className="mr-2 h-5 w-5" />
+              {confirmingAttendance ? 'Confirming...' : 'Yes, I\'ll Be There'}
+            </Button>
+            <p className="text-xs text-orange-600">
+              Your confirmation will be forwarded to the assigned team member
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Attendance Confirmed Banner */}
+      {isAttendanceConfirmed && !isCheckedIn && (
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="flex items-center gap-3 py-4">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+            <div>
+              <p className="text-sm font-semibold text-green-900">
+                Attendance Confirmed
+              </p>
+              <p className="text-xs text-green-700">
+                Your team has been notified. You can check in when the window opens.
+                {bookingConfirmation?.assignedTeamMemberName && (
+                  <> Assigned to: <strong>{bookingConfirmation.assignedTeamMemberName}</strong></>
+                )}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Booking Details */}
       <Card>
@@ -335,7 +473,6 @@ export default function CheckInPage() {
 
           {isCheckedIn ? (
             <>
-              {/* Countdown timer */}
               <div className="flex items-center gap-2 text-gray-600">
                 <Timer className="h-5 w-5" />
                 <span className="text-sm">Time remaining:</span>
@@ -367,6 +504,12 @@ export default function CheckInPage() {
               <p className="mt-1 text-xs text-gray-400">
                 (30 minutes before your booking start)
               </p>
+              {!isAttendanceConfirmed && (
+                <p className="mt-2 text-xs text-orange-600">
+                  <AlertTriangle className="mr-1 inline h-3 w-3" />
+                  Please confirm your attendance above first
+                </p>
+              )}
             </div>
           ) : (
             <Button

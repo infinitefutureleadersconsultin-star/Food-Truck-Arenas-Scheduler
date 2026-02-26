@@ -18,6 +18,7 @@ import {
   Menu,
   X,
 } from 'lucide-react';
+import { FeedbackBubble } from '@/components/shared/FeedbackBubble';
 
 const vendorNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -205,6 +206,9 @@ export default function VendorLayout({
         {/* Page content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
+
+      {/* Feedback Bubble */}
+      <FeedbackBubble />
     </div>
   );
 }
