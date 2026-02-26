@@ -7,9 +7,7 @@ import {
   ChefHat,
   ArrowRight,
   CheckCircle2,
-  Phone,
   Mail,
-  MapPin,
 } from 'lucide-react';
 
 const features = [
@@ -238,7 +236,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="mt-auto border-t bg-white py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-8 sm:grid-cols-2">
             <div>
               <div className="flex items-center gap-2">
                 <ChefHat className="h-6 w-6 text-primary" />
@@ -271,25 +269,6 @@ export default function LandingPage() {
                   >
                     Create Account
                   </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900">
-                Contact
-              </h3>
-              <ul className="mt-4 space-y-3">
-                <li className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin className="h-4 w-4 text-gray-400" />
-                  123 Arena Blvd, Food City, TX 75001
-                </li>
-                <li className="flex items-center gap-2 text-sm text-gray-600">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                  (555) 123-4567
-                </li>
-                <li className="flex items-center gap-2 text-sm text-gray-600">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  info@foodtuckarena.com
                 </li>
               </ul>
             </div>

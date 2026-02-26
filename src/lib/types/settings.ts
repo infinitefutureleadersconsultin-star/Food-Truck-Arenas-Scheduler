@@ -190,3 +190,41 @@ export interface NotificationPreferences {
   messages: boolean;
   teamUpdates: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Appointments (walk-throughs, meetings — separate from table bookings)
+// ---------------------------------------------------------------------------
+
+export type AppointmentType = 'walk_through' | 'meeting' | 'consultation' | 'other';
+
+export type AppointmentStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'checked_in'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show';
+
+export interface Appointment {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+  businessName: string;
+  type: AppointmentType;
+  purpose: string;
+  date: string;       // YYYY-MM-DD
+  startTime: string;  // "10:00"
+  endTime: string;    // "11:00"
+  status: AppointmentStatus;
+  checkedInAt: Timestamp | null;
+  checkedInMorningOf: boolean;
+  morningCheckInAt: Timestamp | null;
+  assignedTeamMemberId: string | null;
+  assignedTeamMemberName: string | null;
+  adminNotes: string;
+  cancelReason: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
