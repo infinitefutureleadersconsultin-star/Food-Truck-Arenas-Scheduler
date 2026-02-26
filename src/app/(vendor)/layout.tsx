@@ -20,6 +20,7 @@ import {
   CalendarCheck,
 } from 'lucide-react';
 import { FeedbackBubble } from '@/components/shared/FeedbackBubble';
+import { OnboardingTour } from '@/components/shared/OnboardingTour';
 
 const vendorNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -211,6 +212,9 @@ export default function VendorLayout({
 
       {/* Feedback Bubble */}
       <FeedbackBubble />
+
+      {/* One-time onboarding tour for new vendors */}
+      <OnboardingTour />
     </div>
   );
 }

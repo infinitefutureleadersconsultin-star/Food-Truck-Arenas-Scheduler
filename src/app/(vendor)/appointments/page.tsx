@@ -222,36 +222,40 @@ export default function AppointmentsPage() {
 
       {/* Morning check-in alert */}
       {needsMorningCheckIn.length > 0 && isBefore10AM && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="py-4">
+        <Card className="border-2 border-orange-300 bg-orange-50 shadow-md">
+          <CardContent className="py-5">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-200">
+                <AlertTriangle className="h-5 w-5 text-orange-700" />
+              </div>
               <div className="flex-1">
-                <h3 className="text-sm font-semibold text-orange-900">
-                  Morning Check-In Required
+                <h3 className="text-base font-bold text-orange-900">
+                  Check In Now
                 </h3>
-                <p className="mt-1 text-xs text-orange-700">
-                  You have {needsMorningCheckIn.length} appointment(s) today.
-                  Please confirm by 10:00 AM or they will be automatically cancelled.
+                <p className="mt-1 text-sm text-orange-700">
+                  You have {needsMorningCheckIn.length} appointment(s) today that
+                  need check-in. Tap the button below before 10:00 AM or your
+                  appointment will be automatically cancelled.
                 </p>
-                <div className="mt-3 space-y-2">
+                <div className="mt-4 space-y-3">
                   {needsMorningCheckIn.map((appt) => (
                     <div
                       key={appt.id}
-                      className="flex items-center justify-between rounded-lg bg-white p-3"
+                      className="flex items-center justify-between rounded-xl border border-orange-200 bg-white p-4 shadow-sm"
                     >
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {APPOINTMENT_TYPES.find((t) => t.value === appt.type)?.label} at {formatTime(appt.startTime)}
+                        <p className="text-sm font-semibold text-gray-900">
+                          {APPOINTMENT_TYPES.find((t) => t.value === appt.type)?.label}
                         </p>
-                        <p className="text-xs text-gray-500">{appt.purpose}</p>
+                        <p className="text-xs text-gray-500">
+                          {formatTime(appt.startTime)} — {appt.purpose}
+                        </p>
                       </div>
                       <Button
-                        size="sm"
-                        className="bg-orange-600 hover:bg-orange-700"
+                        className="bg-orange-600 px-6 text-sm font-bold hover:bg-orange-700"
                         onClick={() => handleMorningCheckIn(appt.id)}
                       >
-                        <CheckCircle2 className="mr-1 h-4 w-4" />
+                        <CheckCircle2 className="mr-2 h-5 w-5" />
                         Check In
                       </Button>
                     </div>
@@ -455,11 +459,10 @@ export default function AppointmentsPage() {
                   {appt.date === today && !appt.checkedInMorningOf && isBefore10AM &&
                     (appt.status === 'pending' || appt.status === 'confirmed') && (
                     <Button
-                      size="sm"
-                      className="bg-orange-600 hover:bg-orange-700"
+                      className="animate-pulse bg-orange-600 px-5 font-bold hover:bg-orange-700"
                       onClick={() => handleMorningCheckIn(appt.id)}
                     >
-                      <CheckCircle2 className="mr-1 h-4 w-4" />
+                      <CheckCircle2 className="mr-2 h-5 w-5" />
                       Check In
                     </Button>
                   )}

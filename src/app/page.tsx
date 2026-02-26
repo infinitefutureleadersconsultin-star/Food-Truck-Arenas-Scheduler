@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Mail,
 } from 'lucide-react';
+import { AppointmentSchedulerModal } from '@/components/shared/AppointmentSchedulerModal';
 
 const features = [
   {
@@ -110,6 +111,9 @@ export default function LandingPage() {
               >
                 Sign In
               </Link>
+            </div>
+            <div className="mt-6 flex justify-center">
+              <AppointmentSchedulerModal />
             </div>
           </div>
         </div>
