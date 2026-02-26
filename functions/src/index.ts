@@ -19,6 +19,7 @@ export {
   generateCheckInConfirmations,
   processUnconfirmedBookings,
 } from "./scheduled/generateCheckInConfirmations";
+export { processAppointmentCheckIns } from "./scheduled/processAppointmentCheckIns";
 
 // Admin callable functions
 export { updateUserStatus } from "./admin/updateUserStatus";

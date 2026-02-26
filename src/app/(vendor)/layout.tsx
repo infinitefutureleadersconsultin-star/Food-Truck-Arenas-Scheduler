@@ -17,6 +17,7 @@ import {
   LogOut,
   Menu,
   X,
+  CalendarCheck,
 } from 'lucide-react';
 import { FeedbackBubble } from '@/components/shared/FeedbackBubble';
 
@@ -26,6 +27,7 @@ const vendorNavItems = [
   { href: '/my-bookings', label: 'My Bookings', icon: CalendarDays },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/check-in', label: 'Check In', icon: QrCode },
+  { href: '/appointments', label: 'Appointments', icon: CalendarCheck },
   { href: '/announcements', label: 'Announcements', icon: Bell },
   { href: '/messages', label: 'Messages', icon: MessageSquare },
   { href: '/profile', label: 'Profile', icon: User },

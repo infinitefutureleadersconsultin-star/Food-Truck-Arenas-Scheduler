@@ -22,6 +22,7 @@ import {
   Puzzle,
   UserPlus,
   ClipboardCheck,
+  CalendarCheck,
 } from 'lucide-react';
 import { FeedbackBubble } from '@/components/shared/FeedbackBubble';
 
@@ -30,6 +31,7 @@ const adminNavItems = [
   { href: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
   { href: '/admin/vendors', label: 'Vendors', icon: Users },
   { href: '/admin/resources', label: 'Resources', icon: Building2 },
+  { href: '/admin/appointments', label: 'Appointments', icon: CalendarCheck },
   { href: '/admin/check-in-confirmations', label: 'Confirmations', icon: ClipboardCheck },
   { href: '/admin/team', label: 'Team', icon: UserPlus },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },

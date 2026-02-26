@@ -66,4 +66,7 @@ export type {
   ConfirmationStatus,
   CheckInConfirmation,
   NotificationPreferences,
+  AppointmentType,
+  AppointmentStatus,
+  Appointment,
 } from './settings';
