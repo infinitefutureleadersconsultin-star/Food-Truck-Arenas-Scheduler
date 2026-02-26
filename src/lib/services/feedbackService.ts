@@ -8,6 +8,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import type { Feedback, FeedbackCategory, FeedbackStatus } from '@/lib/types';
@@ -47,7 +48,7 @@ export async function getAllFeedback(
   status?: FeedbackStatus
 ): Promise<Feedback[]> {
   try {
-    const constraints = [orderBy('createdAt', 'desc')];
+    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
     if (status) {
       constraints.unshift(where('status', '==', status));
     }
