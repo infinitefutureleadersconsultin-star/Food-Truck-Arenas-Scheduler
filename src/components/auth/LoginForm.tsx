@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { signInWithEmail, getUserClaims } from '@/lib/firebase/auth';
-import { scheduleAppointment } from '@/lib/services/appointmentService';
+import { scheduleAppointment, morningCheckIn } from '@/lib/services/appointmentService';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { cn } from '@/lib/utils/cn';
 import { doc, getDoc } from 'firebase/firestore';
@@ -56,35 +56,35 @@ export function LoginForm() {
     return true;
   };
 
-  const processPendingAppointment = async () => {
+  const processPendingAppointment = async (): Promise<boolean> => {
     try {
       const raw = localStorage.getItem('pendingAppointment');
-      if (!raw) return;
+      if (!raw) return false;
 
       const pending = JSON.parse(raw);
       // Skip if the appointment was saved more than 30 days ago
       const savedAt = new Date(pending.savedAt);
       if (Date.now() - savedAt.getTime() > 30 * 24 * 60 * 60 * 1000) {
         localStorage.removeItem('pendingAppointment');
-        return;
+        return false;
       }
 
       // Skip if the appointment date has already passed
       const apptDate = new Date(pending.date + 'T23:59:59');
       if (apptDate < new Date()) {
         localStorage.removeItem('pendingAppointment');
-        return;
+        return false;
       }
 
       const auth = getAuth();
       const currentUser = auth.currentUser;
-      if (!currentUser) return;
+      if (!currentUser) return false;
 
       // Fetch user doc for display name and business name
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       const userData = userDoc.data();
 
-      await scheduleAppointment(
+      const appointmentId = await scheduleAppointment(
         currentUser.uid,
         userData?.displayName || pending.name,
         userData?.email || pending.email,
@@ -97,21 +97,28 @@ export function LoginForm() {
         pending.endTime
       );
 
+      // If they already checked in on the confirmation page, apply it
+      if (pending.checkedIn && appointmentId) {
+        await morningCheckIn(appointmentId);
+      }
+
       localStorage.removeItem('pendingAppointment');
+      return true;
     } catch {
       // If appointment creation fails (conflict, etc.), clear it silently
       localStorage.removeItem('pendingAppointment');
+      return false;
     }
   };
 
   const handleRedirectByRole = async () => {
     try {
       // Process any pending appointment from landing page
-      await processPendingAppointment();
+      const hadPendingAppointment = await processPendingAppointment();
 
       const claims = await getUserClaims();
       if (!claims) {
-        router.push('/dashboard');
+        router.push(hadPendingAppointment ? '/appointments' : '/dashboard');
         return;
       }
 
@@ -125,7 +132,8 @@ export function LoginForm() {
 
       if (role === 'vendor') {
         if (status === 'active') {
-          router.push('/dashboard');
+          // Redirect to appointments page if they had a pending appointment
+          router.push(hadPendingAppointment ? '/appointments' : '/dashboard');
           return;
         }
         if (status === 'pending') {
@@ -145,7 +153,7 @@ export function LoginForm() {
       }
 
       // Fallback for users without claims set yet
-      router.push('/dashboard');
+      router.push(hadPendingAppointment ? '/appointments' : '/dashboard');
     } catch {
       // If claims retrieval fails, still redirect to dashboard
       router.push('/dashboard');
