@@ -303,8 +303,8 @@ export function AppointmentSchedulerModal() {
                   Appointment Scheduled!
                 </DialogTitle>
                 <DialogDescription className="text-center">
-                  Create an account or sign in to confirm your booking and manage
-                  your appointments.
+                  Your appointment is set. View your confirmation or create an
+                  account for full access.
                 </DialogDescription>
               </DialogHeader>
 
@@ -323,23 +323,31 @@ export function AppointmentSchedulerModal() {
 
               <div className="space-y-3">
                 <Button
-                  onClick={() => { setOpen(false); router.push('/signup'); }}
+                  onClick={() => { setOpen(false); router.push('/appointment-confirmation'); }}
                   className="w-full"
                 >
-                  Create Account
+                  View Appointment Confirmation
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
+                  onClick={() => { setOpen(false); router.push('/signup'); }}
+                  className="w-full"
+                >
+                  Create Account
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => { setOpen(false); router.push('/login'); }}
                   className="w-full"
                 >
-                  Sign In
+                  Already have an account? Sign In
                 </Button>
               </div>
 
               <p className="text-center text-xs text-gray-400">
-                Your appointment will be confirmed after you sign in.
+                You can check in and manage your appointment from the confirmation
+                page without an account. Create an account for full access.
               </p>
             </>
           )}
