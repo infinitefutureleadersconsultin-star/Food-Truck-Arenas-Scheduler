@@ -9,8 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { signInWithEmail, getUserClaims } from '@/lib/firebase/auth';
+import { scheduleAppointment } from '@/lib/services/appointmentService';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { cn } from '@/lib/utils/cn';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { getAuth } from 'firebase/auth';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -52,8 +56,59 @@ export function LoginForm() {
     return true;
   };
 
+  const processPendingAppointment = async () => {
+    try {
+      const raw = localStorage.getItem('pendingAppointment');
+      if (!raw) return;
+
+      const pending = JSON.parse(raw);
+      // Skip if the appointment was saved more than 30 days ago
+      const savedAt = new Date(pending.savedAt);
+      if (Date.now() - savedAt.getTime() > 30 * 24 * 60 * 60 * 1000) {
+        localStorage.removeItem('pendingAppointment');
+        return;
+      }
+
+      // Skip if the appointment date has already passed
+      const apptDate = new Date(pending.date + 'T23:59:59');
+      if (apptDate < new Date()) {
+        localStorage.removeItem('pendingAppointment');
+        return;
+      }
+
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      // Fetch user doc for display name and business name
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data();
+
+      await scheduleAppointment(
+        currentUser.uid,
+        userData?.displayName || pending.name,
+        userData?.email || pending.email,
+        userData?.phone || pending.phone,
+        userData?.businessName || pending.businessName,
+        pending.type,
+        pending.purpose,
+        pending.date,
+        pending.startTime,
+        pending.endTime
+      );
+
+      localStorage.removeItem('pendingAppointment');
+    } catch {
+      // If appointment creation fails (conflict, etc.), clear it silently
+      localStorage.removeItem('pendingAppointment');
+    }
+  };
+
   const handleRedirectByRole = async () => {
     try {
+      // Process any pending appointment from landing page
+      await processPendingAppointment();
+
       const claims = await getUserClaims();
       if (!claims) {
         router.push('/dashboard');
