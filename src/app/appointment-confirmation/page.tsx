@@ -137,6 +137,12 @@ export default function AppointmentConfirmationPage() {
 
   const showCheckIn = isAppointmentToday() && isBefore10AM() && !checkedIn;
   const missedCheckIn = isAppointmentToday() && !isBefore10AM() && !checkedIn;
+  const isFutureAppointment = !isAppointmentToday() && !checkedIn && (() => {
+    const apptD = new Date(appointment.date + 'T00:00:00');
+    const todayD = new Date();
+    todayD.setHours(0, 0, 0, 0);
+    return apptD > todayD;
+  })();
   const apptDateObj = new Date(appointment.date + 'T00:00:00');
   const formattedDate = apptDateObj.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -250,8 +256,28 @@ export default function AppointmentConfirmationPage() {
           </CardContent>
         </Card>
 
-        {/* Check-in section — only visible on appointment day before 10 AM */}
-        {showCheckIn && (
+        {/* Check-in section — always visible with context-appropriate state */}
+        {checkedIn ? (
+          <Card className="mb-6 border-2 border-green-300 bg-green-50 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-200">
+                  <CheckCircle2 className="h-5 w-5 text-green-700" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-green-900">
+                    Checked In Successfully
+                  </h3>
+                  <p className="mt-1 text-sm text-green-700">
+                    You&apos;ve confirmed your attendance. The admin team has been
+                    notified that you&apos;re on your way. See you at{' '}
+                    {appointment.startTime}!
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : showCheckIn ? (
           <Card className="mb-6 border-2 border-orange-300 shadow-md">
             <CardContent className="p-6">
               <div className="flex items-start gap-3">
@@ -280,44 +306,54 @@ export default function AppointmentConfirmationPage() {
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Checked in success */}
-        {checkedIn && (
-          <Card className="mb-6 border-green-200 bg-green-50">
-            <CardContent className="flex items-center gap-3 p-5">
-              <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" />
-              <div>
-                <p className="text-sm font-bold text-green-900">
-                  Checked In Successfully
-                </p>
-                <p className="text-xs text-green-700">
-                  You&apos;ve confirmed your attendance for today. The admin team
-                  has been notified that you&apos;re on your way. See you at{' '}
-                  {appointment.startTime}!
-                </p>
+        ) : missedCheckIn ? (
+          <Card className="mb-6 border-2 border-red-300 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-200">
+                  <AlertTriangle className="h-5 w-5 text-red-700" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-red-900">
+                    Check-in Window Closed
+                  </h3>
+                  <p className="mt-1 text-sm text-red-700">
+                    The 10:00 AM check-in deadline has passed. Your appointment may be
+                    cancelled. Please reschedule with at least 24-hour notice.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Missed check-in warning */}
-        {missedCheckIn && (
-          <Card className="mb-6 border-red-200 bg-red-50">
-            <CardContent className="flex items-center gap-3 p-5">
-              <AlertTriangle className="h-6 w-6 shrink-0 text-red-600" />
-              <div>
-                <p className="text-sm font-bold text-red-900">
-                  Check-in Window Closed
-                </p>
-                <p className="text-xs text-red-700">
-                  The 10:00 AM check-in deadline has passed. Your appointment may be
-                  cancelled. Please reschedule with at least 24-hour notice.
-                </p>
+        ) : isFutureAppointment ? (
+          <Card className="mb-6 border-2 border-blue-300 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-200">
+                  <CalendarCheck className="h-5 w-5 text-blue-700" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-blue-900">
+                    Check In
+                  </h3>
+                  <p className="mt-1 text-sm text-blue-700">
+                    On <strong>{formattedDate}</strong>, return to this page and press
+                    the button below before <strong>10:00 AM</strong> to confirm your
+                    attendance. If you don&apos;t check in by then, your appointment
+                    will be automatically cancelled.
+                  </p>
+                  <Button
+                    className="mt-4 bg-blue-100 px-8 text-base font-bold text-blue-400"
+                    disabled
+                  >
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                    Check In — Available on {apptDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
         {/* Disclaimers */}
         <Card className="mb-6 border-blue-200 bg-blue-50">

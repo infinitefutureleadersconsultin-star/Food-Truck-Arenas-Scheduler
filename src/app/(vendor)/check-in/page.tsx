@@ -25,6 +25,7 @@ import {
 import {
   sendCheckInReminderPush,
 } from '@/lib/services/pushNotificationService';
+import { recordCheckIn } from '@/lib/services/appointmentService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -167,8 +168,14 @@ export default function CheckInPage() {
   const { user, userData } = useAuthContext();
   const today = new Date().toISOString().split('T')[0];
 
+  // Fetch today's bookings
   const { bookings, loading, error: fetchError, refetch } = useBookings(
     user ? { userId: user.uid, date: today } : undefined,
+  );
+
+  // Also fetch ALL user bookings so we can show upcoming ones when no booking today
+  const { bookings: allBookings, loading: allLoading } = useBookings(
+    user ? { userId: user.uid } : undefined,
   );
 
   // Confirmation state
@@ -285,13 +292,43 @@ export default function CheckInPage() {
 
   const handleCheckIn = useCallback(async () => {
     await checkIn();
+
+    // Record check-in alert so admin/team sees it
+    if (todaysBooking && user) {
+      await recordCheckIn({
+        appointmentId: todaysBooking.id,
+        userId: user.uid,
+        name: todaysBooking.userName || userData?.displayName || '',
+        email: userData?.email || '',
+        businessName: todaysBooking.businessName || userData?.businessName || '',
+        type: 'table_booking',
+        date: todaysBooking.date,
+        startTime: todaysBooking.startTime,
+        endTime: todaysBooking.endTime,
+        source: 'vendor_profile',
+      });
+    }
+
     refetch();
-  }, [checkIn, refetch]);
+  }, [checkIn, refetch, todaysBooking, user, userData]);
 
   const handleCheckOut = useCallback(async () => {
     await checkOut();
     refetch();
   }, [checkOut, refetch]);
+
+  // Upcoming bookings (future, active status) for when there's no booking today
+  const upcomingBookings = useMemo(() => {
+    if (!allBookings) return [];
+    return allBookings
+      .filter(
+        (b) =>
+          b.date > today &&
+          (b.status === 'pending' || b.status === 'confirmed'),
+      )
+      .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
+      .slice(0, 5);
+  }, [allBookings, today]);
 
   if (loading || !confirmationLoaded) {
     return (
@@ -318,19 +355,97 @@ export default function CheckInPage() {
 
   if (!todaysBooking) {
     return (
-      <div className="p-4 md:p-6">
-        <h1 className="mb-6 text-2xl font-bold text-gray-900">Check In</h1>
-        <EmptyState
-          icon={CalendarX}
-          title="No booking for today"
-          description="You do not have any bookings scheduled for today."
-          action={{
-            label: 'Book a Table',
-            onClick: () => {
-              window.location.href = '/book';
-            },
-          }}
-        />
+      <div className="mx-auto max-w-2xl space-y-6 p-4 md:p-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Check In</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            No table booking for today
+          </p>
+        </div>
+
+        {allLoading ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <LoadingSpinner size="md" />
+            </CardContent>
+          </Card>
+        ) : upcomingBookings.length > 0 ? (
+          <>
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="flex items-center gap-3 py-4">
+                <Clock className="h-5 w-5 shrink-0 text-blue-600" />
+                <p className="text-sm text-blue-800">
+                  You have <strong>{upcomingBookings.length}</strong> upcoming
+                  booking(s). The <strong>Check In</strong> button will activate
+                  on your booking day, 30 minutes before start time.
+                </p>
+              </CardContent>
+            </Card>
+
+            <h2 className="text-base font-semibold text-gray-900">
+              Your Upcoming Bookings
+            </h2>
+            <div className="space-y-3">
+              {upcomingBookings.map((bk) => {
+                const bkDate = new Date(bk.date + 'T00:00:00');
+                return (
+                  <Card key={bk.id}>
+                    <CardContent className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {bkDate.toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </p>
+                            <StatusBadge status={bk.status} type="booking" />
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatTime(bk.startTime)} - {formatTime(bk.endTime)}
+                            </span>
+                            {bk.resources.length > 0 && (
+                              <span>
+                                {bk.resources.map((r) => r.resourceName).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        className="bg-gray-100 text-xs font-medium text-gray-400"
+                        size="sm"
+                        disabled
+                      >
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                        Check In on {bkDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            icon={CalendarX}
+            title="No bookings scheduled"
+            description="You don't have any upcoming table bookings. Book a table to get started."
+            action={{
+              label: 'Book a Table',
+              onClick: () => {
+                window.location.href = '/book';
+              },
+            }}
+          />
+        )}
       </div>
     );
   }
