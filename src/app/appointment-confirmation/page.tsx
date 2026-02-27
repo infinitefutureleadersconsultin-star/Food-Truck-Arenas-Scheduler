@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { recordCheckIn } from '@/lib/services/appointmentService';
 
 interface PendingAppointment {
   name: string;
@@ -67,16 +68,38 @@ export default function AppointmentConfirmationPage() {
     return new Date().getHours() < 10;
   };
 
-  const handleCheckIn = () => {
+  const [checkingIn, setCheckingIn] = useState(false);
+
+  const handleCheckIn = async () => {
     if (!appointment) return;
-    const updated = {
-      ...appointment,
-      checkedIn: true,
-      checkedInAt: new Date().toISOString(),
-    };
-    localStorage.setItem('pendingAppointment', JSON.stringify(updated));
-    setAppointment(updated);
-    setCheckedIn(true);
+    setCheckingIn(true);
+    try {
+      // Save to localStorage (existing behavior)
+      const updated = {
+        ...appointment,
+        checkedIn: true,
+        checkedInAt: new Date().toISOString(),
+      };
+      localStorage.setItem('pendingAppointment', JSON.stringify(updated));
+      setAppointment(updated);
+      setCheckedIn(true);
+
+      // Also record in Firestore so admin/team sees it immediately
+      await recordCheckIn({
+        name: appointment.name,
+        email: appointment.email,
+        businessName: appointment.businessName,
+        type: appointment.type,
+        date: appointment.date,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime,
+        source: 'public_confirmation',
+      });
+    } catch {
+      // Check-in saved locally even if Firestore write fails
+    } finally {
+      setCheckingIn(false);
+    }
   };
 
   if (loading) {
@@ -248,9 +271,10 @@ export default function AppointmentConfirmationPage() {
                   <Button
                     className="mt-4 bg-orange-600 px-8 text-base font-bold hover:bg-orange-700"
                     onClick={handleCheckIn}
+                    disabled={checkingIn}
                   >
                     <CheckCircle2 className="mr-2 h-5 w-5" />
-                    Check In
+                    {checkingIn ? 'Checking In...' : 'Check In — Confirm Attendance'}
                   </Button>
                 </div>
               </div>
@@ -268,7 +292,8 @@ export default function AppointmentConfirmationPage() {
                   Checked In Successfully
                 </p>
                 <p className="text-xs text-green-700">
-                  You&apos;ve confirmed your attendance for today. See you at{' '}
+                  You&apos;ve confirmed your attendance for today. The admin team
+                  has been notified that you&apos;re on your way. See you at{' '}
                   {appointment.startTime}!
                 </p>
               </div>

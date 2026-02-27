@@ -33,6 +33,7 @@ import {
   getBookedSlotsForDate,
   morningCheckIn,
   cancelAppointment,
+  recordCheckIn,
 } from '@/lib/services/appointmentService';
 import { formatDate, formatTime } from '@/lib/utils/dateUtils';
 import { cn } from '@/lib/utils/cn';
@@ -182,6 +183,24 @@ export default function AppointmentsPage() {
   const handleMorningCheckIn = async (appointmentId: string) => {
     try {
       await morningCheckIn(appointmentId);
+
+      // Record check-in alert so admin/team sees it immediately
+      const appt = appointments.find((a) => a.id === appointmentId);
+      if (appt && user) {
+        await recordCheckIn({
+          appointmentId,
+          userId: user.uid,
+          name: appt.userName || userData?.displayName || '',
+          email: appt.userEmail || userData?.email || '',
+          businessName: appt.businessName || userData?.businessName || '',
+          type: appt.type,
+          date: appt.date,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          source: 'vendor_profile',
+        });
+      }
+
       await fetchAppointments();
     } catch (err) {
       console.error('Error checking in:', err);

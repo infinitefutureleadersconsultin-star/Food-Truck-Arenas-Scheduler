@@ -13,6 +13,7 @@ import {
   Send,
   Eye,
   Trash2,
+  Bell,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,8 @@ import {
   completeAppointment,
   markAppointmentNoShow,
   updateAppointmentNotes,
+  getCheckInsForDate,
+  markCheckInRead,
 } from '@/lib/services/appointmentService';
 import { formatDate, formatTime } from '@/lib/utils/dateUtils';
 import type { Appointment, AppointmentStatus } from '@/lib/types';
@@ -64,6 +67,13 @@ export default function AdminAppointmentsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [notesInput, setNotesInput] = useState('');
 
+  const [checkInAlerts, setCheckInAlerts] = useState<
+    { id: string; name: string; email: string; businessName: string; type: string;
+      date: string; startTime: string; endTime: string; source: string;
+      checkedInAt: { toDate?: () => Date } | null; readByAdmin: boolean;
+      appointmentId?: string; userId?: string }[]
+  >([]);
+
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     try {
@@ -78,9 +88,26 @@ export default function AdminAppointmentsPage() {
     }
   }, [filter]);
 
+  const fetchCheckInAlerts = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const alerts = await getCheckInsForDate(today);
+      setCheckInAlerts(alerts);
+    } catch (err) {
+      console.error('Error fetching check-in alerts:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
+
+  useEffect(() => {
+    fetchCheckInAlerts();
+    // Poll every 30 seconds for new check-ins
+    const interval = setInterval(fetchCheckInAlerts, 30000);
+    return () => clearInterval(interval);
+  }, [fetchCheckInAlerts]);
 
   const handleConfirm = async (appt: Appointment) => {
     // Auto-assign to first active team member if available
@@ -134,6 +161,11 @@ export default function AdminAppointmentsPage() {
     }
   };
 
+  const handleAcknowledgeCheckIn = async (checkInId: string) => {
+    await markCheckInRead(checkInId);
+    await fetchCheckInAlerts();
+  };
+
   const formatTimestamp = (timestamp: { toDate?: () => Date } | null) => {
     if (!timestamp?.toDate) return '-';
     return timestamp.toDate().toLocaleTimeString('en-US', {
@@ -174,7 +206,7 @@ export default function AdminAppointmentsPage() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchAppointments}>
+        <Button variant="outline" size="sm" onClick={() => { fetchAppointments(); fetchCheckInAlerts(); }}>
           <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
@@ -207,6 +239,95 @@ export default function AdminAppointmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Live check-in alerts */}
+      {checkInAlerts.filter((a) => !a.readByAdmin).length > 0 && (
+        <Card className="border-2 border-green-300 bg-green-50 shadow-md">
+          <CardContent className="py-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-200">
+                <Bell className="h-5 w-5 text-green-700" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-green-900">
+                  {checkInAlerts.filter((a) => !a.readByAdmin).length} New Check-In(s) Today
+                </h3>
+                <p className="mt-1 text-sm text-green-700">
+                  These people confirmed they are still coming for their appointment.
+                </p>
+                <div className="mt-4 space-y-3">
+                  {checkInAlerts
+                    .filter((a) => !a.readByAdmin)
+                    .map((alert) => (
+                      <div
+                        key={alert.id}
+                        className="flex items-center justify-between rounded-xl border border-green-200 bg-white p-4 shadow-sm"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {alert.name}
+                            </p>
+                            {alert.businessName && (
+                              <span className="text-xs text-gray-500">
+                                ({alert.businessName})
+                              </span>
+                            )}
+                            <Badge
+                              className="bg-green-100 text-green-700"
+                              variant="secondary"
+                            >
+                              Checked In
+                            </Badge>
+                            <Badge
+                              className={
+                                alert.source === 'vendor_profile'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-purple-100 text-purple-700'
+                              }
+                              variant="secondary"
+                            >
+                              {alert.source === 'vendor_profile'
+                                ? 'Vendor Account'
+                                : 'Public Page'}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                            <span>
+                              {APPOINTMENT_TYPE_LABELS[alert.type] || alert.type}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatTime(alert.startTime)} - {formatTime(alert.endTime)}
+                            </span>
+                            <span>
+                              Checked in at{' '}
+                              {alert.checkedInAt?.toDate
+                                ? alert.checkedInAt.toDate().toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                  })
+                                : '-'}
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-green-600 hover:bg-green-50"
+                          onClick={() => handleAcknowledgeCheckIn(alert.id)}
+                        >
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                          Acknowledge
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Missed check-in warning */}
       {missedCheckIns.length > 0 && (
