@@ -130,6 +130,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Appointment check-in alerts — anyone can create (public + vendor), admin reads
+    match /appointmentCheckIns/{checkInId} {
+      allow create: if true;
+      allow read: if isAdmin();
+      allow update: if isAdmin();
+    }
+
     // Check-in confirmations — vendors confirm their own, admin can view/manage all
     match /checkInConfirmations/{confirmationId} {
       allow read: if isAuthenticated() &&

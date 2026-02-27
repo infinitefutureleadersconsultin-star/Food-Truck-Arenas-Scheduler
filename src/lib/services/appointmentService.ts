@@ -302,6 +302,98 @@ export async function updateAppointmentNotes(
 }
 
 /**
+ * Record a check-in alert so admins/team members know the person is still coming.
+ * Works for both authenticated vendors and unauthenticated public visitors.
+ */
+export async function recordCheckIn(data: {
+  appointmentId?: string;
+  userId?: string;
+  name: string;
+  email: string;
+  businessName: string;
+  type: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  source: 'vendor_profile' | 'public_confirmation';
+}): Promise<void> {
+  try {
+    await addDoc(collection(db, 'appointmentCheckIns'), {
+      ...data,
+      checkedInAt: Timestamp.now(),
+      readByAdmin: false,
+    });
+  } catch (error) {
+    console.error('Error recording check-in alert:', error);
+    // Don't throw — check-in alert is supplementary, shouldn't block the main check-in
+  }
+}
+
+/**
+ * Get all check-in alerts for a given date (admin view).
+ */
+export async function getCheckInsForDate(date: string): Promise<
+  {
+    id: string;
+    name: string;
+    email: string;
+    businessName: string;
+    type: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    source: string;
+    checkedInAt: Timestamp;
+    readByAdmin: boolean;
+    appointmentId?: string;
+    userId?: string;
+  }[]
+> {
+  try {
+    const q = query(
+      collection(db, 'appointmentCheckIns'),
+      where('date', '==', date),
+      orderBy('checkedInAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        name: data.name || '',
+        email: data.email || '',
+        businessName: data.businessName || '',
+        type: data.type || '',
+        date: data.date || '',
+        startTime: data.startTime || '',
+        endTime: data.endTime || '',
+        source: data.source || '',
+        checkedInAt: data.checkedInAt,
+        readByAdmin: data.readByAdmin || false,
+        appointmentId: data.appointmentId,
+        userId: data.userId,
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching check-in alerts:', error);
+    return [];
+  }
+}
+
+/**
+ * Mark a check-in alert as read by admin.
+ */
+export async function markCheckInRead(checkInId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'appointmentCheckIns', checkInId), {
+      readByAdmin: true,
+    });
+  } catch (error) {
+    console.error('Error marking check-in as read:', error);
+  }
+}
+
+/**
  * Get available time slots for a given date.
  * Returns which hours are already booked.
  */
