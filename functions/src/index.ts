@@ -16,6 +16,14 @@ export { detectNoShows } from "./scheduled/detectNoShows";
 export { checkDocumentExpiry } from "./scheduled/checkDocumentExpiry";
 export { dailyCleanup } from "./scheduled/dailyCleanup";
 
+// Scheduled functions — intra-day booking completion
+export { completeExpiredBookings } from "./scheduled/completeExpiredBookings";
+
 // Admin callable functions
 export { updateUserStatus } from "./admin/updateUserStatus";
 export { bulkOperations } from "./admin/bulkOperations";
+
+// Push notification functions
+export { sendPushNotification } from "./notifications/sendPushNotification";
+export { onAnnouncementCreated } from "./notifications/onAnnouncementCreated";
+export { onMessageCreated } from "./notifications/onMessageCreated";
