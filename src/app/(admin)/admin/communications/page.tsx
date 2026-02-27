@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Megaphone, Trash2, AlertTriangle } from 'lucide-react';
+import { Megaphone, Trash2, AlertTriangle, Bell } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,9 @@ export default function CommunicationsPage() {
     priority: AnnouncementPriority;
     targetAudience: 'all' | 'active_vendors';
   }) => {
+    // Creating the announcement in Firestore will automatically trigger
+    // the onAnnouncementCreated Cloud Function which sends push notifications
+    // to all vendors who have enabled them. No extra call needed.
     await createAnnouncement({
       title: data.title,
       body: data.body,
@@ -80,9 +83,17 @@ export default function CommunicationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Megaphone className="h-7 w-7 text-gray-700" />
-        <h1 className="text-3xl font-bold tracking-tight">Communications</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Megaphone className="h-7 w-7 text-gray-700" />
+          <h1 className="text-3xl font-bold tracking-tight">Communications</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1 py-1">
+            <Bell className="h-3 w-3" />
+            Push notifications auto-send with announcements
+          </Badge>
+        </div>
       </div>
 
       <AnnouncementComposer onSubmit={handleSendAnnouncement} />

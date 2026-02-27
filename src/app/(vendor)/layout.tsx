@@ -18,6 +18,7 @@ import {
   Menu,
   X,
 } from 'lucide-react';
+import { PushNotificationToggle } from '@/components/notifications/PushNotificationToggle';
 
 const vendorNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -186,6 +187,7 @@ export default function VendorLayout({
               Food Truck Arena
             </h1>
             <div className="ml-auto flex items-center gap-3">
+              <PushNotificationToggle />
               <Link
                 href="/announcements"
                 className="relative rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
